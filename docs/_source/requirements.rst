@@ -7,5 +7,5 @@ file i/o - some sort of data importing and exporting utilities. Will depend on t
 Prerequisites
 ===================
 Python 3.6 - working knowledge
-
-
+sphinx
+cloud_sptheme
