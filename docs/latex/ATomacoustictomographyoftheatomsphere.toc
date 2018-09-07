@@ -1,0 +1,9 @@
+\select@language {english}
+\contentsline {chapter}{\numberline {1}ATom: acoustic tomography of the atomsphere}{1}{chapter.1}
+\contentsline {section}{\numberline {1.1}Acknowledgments}{1}{section.1.1}
+\contentsline {section}{\numberline {1.2}License}{1}{section.1.2}
+\contentsline {chapter}{\numberline {2}Code Reference}{3}{chapter.2}
+\contentsline {section}{\numberline {2.1}\sphinxstyleliteralintitle {\sphinxupquote {atom\_functions}} module}{3}{section.2.1}
+\contentsline {chapter}{\numberline {3}Indices and tables}{9}{chapter.3}
+\contentsline {chapter}{Python Module Index}{11}{section*.31}
+\contentsline {chapter}{Index}{13}{section*.32}

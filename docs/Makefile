@@ -5,8 +5,8 @@
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
 SPHINXPROJ    = ATomacoustictomographyoftheatomsphere
-SOURCEDIR     = _static
-BUILDDIR      = _build
+SOURCEDIR     = _source
+BUILDDIR      = .
 
 # Put it first so that "make" without argument is like "make help".
 help:
