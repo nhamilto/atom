@@ -20,5 +20,5 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 buildandcommithtml: html latexpdf
-
-	cd $(BUILDDIR)/html; git add . ; git commit -m "rebuilt docs"; git push origin gh-pages
+	cp $(BUILDDIR)/html/*.html .
+	git add . ; git commit -m "rebuilt docs"; git push origin master
