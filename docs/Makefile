@@ -4,7 +4,7 @@
 # You can set these variables from the command line.
 SPHINXOPTS    =
 SPHINXBUILD   = sphinx-build
-SPHINXPROJ    = ATomacoustictomographyoftheatomsphere
+SPHINXPROJ    = ATom
 SOURCEDIR     = _source
 BUILDDIR      = .
 
@@ -19,6 +19,6 @@ help:
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-buildandcommithtml: html
+buildandcommit: html
 	cp $(BUILDDIR)/html/*.html .
 	git add . ; git commit -m "rebuilt docs"; git push origin master
