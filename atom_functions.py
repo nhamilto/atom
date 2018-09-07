@@ -28,16 +28,22 @@ Sonic anemometer and T/H probe time series data are in yyyymmddHHMMSS_AcouTomaux
 key stops:
 ___________
 
-generate file list
+instantiate dataset object
+    this is the master class for acoustic tomography projects.
+    a dataset contains all file paths, loads data, identifies acoustic
+    signals, and determines signal travel times
 
+add meta data
+    data crucial to acoustic tomography is loaded into dataset.meta
+    meta data includes acoustic signal design info, data collection parameters,
+    speaker and microphone locations, etc.
 
 travel time extraction
-=======================
-calculate the propagation time of acoustic signals between speakers and microphones in
-the array. With known transducer locations, the 'expected' travel time can be calculated
-with the current estimate of speed of sound (c) from the sonic anemometer.
+    calculate the propagation time of acoustic signals between speakers and microphones in
+    the array. With known transducer locations, the 'expected' travel time can be calculated
+    with the current estimate of speed of sound (c) from the sonic anemometer.
 
-TDSI - time dependent stochastic inversion
+TDSI - time dependent stochastic inversion #TODO
 ==============================================
 from the observed travel times, create over-determined least-squares regression to
 detmine fluctuation velocity and temperature fields in the array.
@@ -123,6 +129,10 @@ class dataset(object):
     def get_meta(self, constantspath):
         """
         get meta data for experiment
+
+        Parameters:
+        -----------
+        constantspath: directory path to file containing meta data
         """
         self.meta = meta_data()
         constants = self.get_constants(constantspath)
@@ -301,40 +311,7 @@ class dataset(object):
 
         # return self
 
-    ####################################
-    def upsample_data(self, upsamplefactor):  #TODO
-        """
-        artificially upsample data to provide the desired resolution
-        new_timedelta = oldtimedelta / upsamplefactor
-        upsamplefactor > 1 ==> increase in time resolution
-        upsamplefactor < 1 ==> decrease in time resolution
 
-        Parameters:
-        ____________
-        upsamplefactor: float or int
-            scale by which to resample data
-
-        """
-        # cubic interpolation of aux_data
-        delta_t = self.aux_data.index[1] - self.aux_data.index[0]
-        rule = delta_t / upsamplefactor
-
-        self.aux_data = self.aux_data.resample('{}U'.format(
-            rule.microseconds)).interpolate(method='cubic')
-
-        # cubic interpolation of speaker data
-        delta_t = self.speaker_data.index[1] - self.speaker_data.index[0]
-        rule = delta_t / upsamplefactor
-
-        self.speaker_data = self.speaker_data.resample('{}U'.format(
-            rule.microseconds)).interpolate(method='cubic')
-
-        # cubic interpolation of micdata
-        delta_t = self.mic_data.index[1] - self.mic_data.index[0]
-        rule = delta_t / upsamplefactor
-
-        self.mic_data = self.mic_data.resample('{}U'.format(
-            rule.microseconds)).interpolate(method='cubic')
 
     ####################################
     def time_info(self):
@@ -380,7 +357,40 @@ class dataset(object):
                              filterflag=True,
                              verbose=False):
         """
-        The guts.
+        Main processing step of raw data.
+
+        Acoustic chirps are identified in speaker and microphone signals.
+        Travel time from each speaker to each mic are calculated.
+
+        Parameters:
+        -----------
+
+        upsamplefactor: int
+            degree to which acoustic signals are upsampled. This is needed to
+            increase precision of travel time estimate
+
+        searchLag: int
+            acoustic signal window width. If none is provided, a default window
+            width is assigned of `searchLag = 3 * self.meta.chirp_record_length * upsamplefactor`
+
+        filterflag: bool
+            implement frequency filter to microphone signals to remove spurious
+            spectral contributions. Band-pass filter with acoustic chirp bandwidth
+            around the central frequency of the acoustic chip, with the bandwidth
+
+        verbose: bool
+            determine output text. used to debug.
+
+        Returns:
+        --------
+        ATom_signals: np.ndarray [nspeakers, nmics, searchLag, nrecords]
+            acoustic chirps received by the microphones
+
+        travel_times: np.ndarray [nspeakers, nmics, nrecords]
+            travel times (ms) of chirps between each speaker and mic for each record
+
+        travel_inds: np.ndarray [nspeakers, nmics, nrecords]
+            travel times (samples) of chirps between each speaker and mic for each record
         """
 
         # width of search window in index value
@@ -495,7 +505,7 @@ def signalOnSpeaker(speakersamp, searchLag, chirp_record_length,
         base values = [2480, 2080, 4080,    0, 3200, 4000,  800, 2880]
         multiplied by upsample factor
 
-    Outputs:
+    Returns:
     -----------
     speakersigs: pd.DataFrame
         extracted speaker chirps, centered in a window of length searchLag
@@ -549,7 +559,7 @@ def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
         base value = 116
         multiplied by upsample factor
 
-    Outputs:
+    Returns:
     -----------
     micsigs: pd.DataFrame
         extracted speaker chirps, centered in a window of length searchLag
@@ -622,29 +632,17 @@ def get_speaker_signal_delay(speakersamp):
 
 
 ####################################
-def crosscorr(datax, datay, lag=0):
-    """ Lag-N cross correlation.
-
-    Parameters
-    ----------
-    lag : int, default 0
-    datax, datay : pandas.Series objects of equal length
-
-    Returns
-    ----------
-    covar : float
-    """
-    covar = np.abs(datax.corr(datay.shift(lag)))
-    return covar
-
-
-####################################
 def covariance(micdat, speakerdat):
-    """ Lag-N cross correlation.
+    """
+    Lag-N cross correlation between two signals.
+    Only the correlation between a speaker chirp and its respective
+    signal in each microphone record sample is required.
+
     Parameters
     ----------
     micdat : pd.DataFrame
         extracted microphone data containing received acoustic signals
+
     speakerdat : pd.DataFrame
         extracted speaeker acoustic signals
 
@@ -668,12 +666,15 @@ def rollchannel(data, rollval):
     """
     shifts values of data forward by rollval index
 
-    Parameters
-    ----------
-    rolval : int, default 0
+    Parameters:
+    -----------
     data : pandas.Series
+        data to shift in time
 
-    Returns
+    rolval : int
+        default 0
+
+    Returns:
     ----------
     covar : float
     """
@@ -682,6 +683,28 @@ def rollchannel(data, rollval):
 
 ####################################
 def butter_bandpass(lowcut, highcut, fs, order=5):
+    """
+    create band-pass frequency filter to isolate chirp frequency in mic singals
+
+    Parameters:
+    -----------
+    lowcut: float
+        lower limit of frequency band
+
+    highcut: float
+        upper limit of frequency band
+
+    fs: float
+        sampling frequency of data
+
+    order: int
+        filter order, default = 5
+
+    Returns:
+    ----------
+    b, a : ndarray, ndarray
+        Numerator (b) and denominator (a) polynomials of the IIR filter. Only returned if output='ba'.
+    """
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
@@ -691,7 +714,32 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
 
 ####################################
 def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    """
+    implement fileter on input data
 
+    Parameters:
+    -----------
+    data: np.arary
+        acoustic signal to be filtered (microphone data)
+
+    lowcut: float
+        lower limit of frequency band, passed to `butter_bandpass`
+
+    highcut: float
+        upper limit of frequency band, passed to `butter_bandpass`
+
+    fs: float
+        sampling frequency of data, passed to `butter_bandpass`
+
+    order: int
+        filter order, default = 5, passed to `butter_bandpass`
+
+    Returns:
+    ---------
+    y: np.array
+        frequency-filtered data
+
+    """
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = sps.lfilter(b, a, data, axis=0)
     return y
@@ -707,12 +755,29 @@ def upsample(datasample, upsamplefactor, method='cubic'):
     datasample: pd.DataFrame
         microphone or speaker data to upsample
 
+    upsamplefactor: int, float
+        factor by which to upsample data
+        upsamplefactor > 1 ==> increase in time resolution
+        upsamplefactor < 1 ==> decrease in time resolution
 
+    method: str
+        method by which to interpolate data:
+
+        - pandas - built-in interp method, slow
+
+        - linear - linear interpolation
+
+        - cubic (default) - cubic interpolation
+
+    Returns:
+    --------
+    newdatasample: pd.DataFrame
+        upsampled data
     """
     delta_t = datasample.index[1] - datasample.index[0]
     rule = delta_t / upsamplefactor
 
-    if method is 'atom':
+    if method is 'pandas':
         newdatasample = datasample.resample('{}U'.format(
             rule.microseconds)).interpolate(method='cubic')
     elif method is 'linear':
@@ -756,6 +821,18 @@ def upsample(datasample, upsamplefactor, method='cubic'):
 def freq_filter(datasample, filter_freq_inds):
     """
     frequency filter to isolate chirp signal in microphones
+    brute force method takes FFT of datasample, sets frequecies
+    outside specified windows to zero, implements IFFT.
+
+    Probably produces ringing in data. Should probably use proper filter.
+
+    Parameters:
+    -----------
+    datasample: np.array
+        data to filter
+
+    filter_freq_inds: np.array
+        key frequencies used in filter design.
     """
     ftmp = sp.fftpack.fft(datasample, axis=0)
     ftmp[range(filter_freq_inds[0], filter_freq_inds[1]), :] = 0
@@ -773,7 +850,6 @@ def signalOnMic_depricated(micsamp, speakersigs, signalETAs,
                            speaker_signal_delay, searchLag,
                            chirp_record_length):
 
-    # mic_signal_delay = speaker_signal_delay + signalETAs
 
     signalstarts = np.array([
         int(s) if s > 0 else 0
@@ -846,3 +922,57 @@ def covariance_depricated(micdat, speakerdat):
 >>>>>>> bab3c58d53b81aad4444a6d69b34cd0081f73bb3
 
     return covar
+
+####################################
+def crosscorr_depricated(datax, datay, lag=0):
+    """ Lag-N cross correlation.
+
+    Parameters
+    ----------
+    lag : int
+        default 0
+
+    datax, datay : pandas.Series
+        objects of equal length
+
+    Returns
+    ----------
+    covar : float
+    """
+    covar = np.abs(datax.corr(datay.shift(lag)))
+    return covar
+
+####################################
+def upsample_data_deptricated(self, upsamplefactor):  #TODO
+    """
+    artificially upsample data to provide the desired resolution
+    new_timedelta = oldtimedelta / upsamplefactor
+    upsamplefactor > 1 ==> increase in time resolution
+    upsamplefactor < 1 ==> decrease in time resolution
+
+    Parameters:
+    ____________
+    upsamplefactor: float or int
+        scale by which to resample data
+
+    """
+    # cubic interpolation of aux_data
+    delta_t = self.aux_data.index[1] - self.aux_data.index[0]
+    rule = delta_t / upsamplefactor
+
+    self.aux_data = self.aux_data.resample('{}U'.format(
+        rule.microseconds)).interpolate(method='cubic')
+
+    # cubic interpolation of speaker data
+    delta_t = self.speaker_data.index[1] - self.speaker_data.index[0]
+    rule = delta_t / upsamplefactor
+
+    self.speaker_data = self.speaker_data.resample('{}U'.format(
+        rule.microseconds)).interpolate(method='cubic')
+
+    # cubic interpolation of micdata
+    delta_t = self.mic_data.index[1] - self.mic_data.index[0]
+    rule = delta_t / upsamplefactor
+
+    self.mic_data = self.mic_data.resample('{}U'.format(
+        rule.microseconds)).interpolate(method='cubic')
