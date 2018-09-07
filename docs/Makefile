@@ -19,6 +19,6 @@ help:
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-buildandcommithtml: html latexpdf
+buildandcommithtml: html
 	cp $(BUILDDIR)/html/*.html .
 	git add . ; git commit -m "rebuilt docs"; git push origin master
