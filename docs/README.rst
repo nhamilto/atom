@@ -1,6 +1,6 @@
-================
- ATom: acoustic tomography of the atomspher
-================
+================================================
+ATom: acoustic tomography of the atomsphere
+================================================
 
 ATom is a python package designed for the analysis of acoustic tomography data, including processing raw data from acoustic sources and receivers.
 
