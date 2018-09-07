@@ -99,3 +99,8 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# sphinx documentation things
+_build
+_static
+_templates
