@@ -102,5 +102,3 @@ ENV/
 
 # sphinx documentation things
 _build
-_static
-_templates
