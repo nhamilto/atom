@@ -1,0 +1,1060 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>ATom.atom_functions &#8212; ATom: acoustic tomography of the atomsphere 1.0 documentation</title>
+    <link rel="stylesheet" href="../../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for ATom.atom_functions</h1><div class="highlight"><pre>
+<span></span><span class="c1"># import numpy as np</span>
+<span class="c1"># import tkinter as tk</span>
+<span class="c1"># from tkinter import filedialog</span>
+<span class="c1"># import glob</span>
+<span class="c1"># from tqdm import tqdm</span>
+<span class="c1"># import math</span>
+<span class="c1"># import scipy as sp</span>
+<span class="c1"># import scipy.signal as sps</span>
+
+<span class="kn">import</span> <span class="nn">importlib</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">import</span> <span class="nn">datetime</span> <span class="k">as</span> <span class="nn">dt</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span> <span class="k">as</span> <span class="nn">sps</span>
+<span class="kn">import</span> <span class="nn">scipy</span> <span class="k">as</span> <span class="nn">sp</span>
+
+<span class="c1"># import sys</span>
+<span class="c1"># sys.path.append(&#39;calibration_data/&#39;)</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Library of functions and classes to proces data from the acoustic tomography array at</span>
+<span class="sd">the National Wind Technology Center.</span>
+
+<span class="sd">speaker and microphone time series data are in yyyymmddHHMMSS_AcouTomMainData.txt</span>
+<span class="sd">Sonic anemometer and T/H probe time series data are in yyyymmddHHMMSS_AcouTomaux_dataa.txt</span>
+
+<span class="sd">key stops:</span>
+<span class="sd">-------------</span>
+
+<span class="sd">instantiate dataset object</span>
+<span class="sd">    this is the master class for acoustic tomography projects.</span>
+<span class="sd">    a dataset contains all file paths, loads data, identifies acoustic</span>
+<span class="sd">    signals, and determines signal travel times</span>
+
+<span class="sd">add meta data</span>
+<span class="sd">    data crucial to acoustic tomography is loaded into dataset.meta</span>
+<span class="sd">    meta data includes acoustic signal design info, data collection parameters,</span>
+<span class="sd">    speaker and microphone locations, etc.</span>
+
+<span class="sd">travel time extraction</span>
+<span class="sd">    calculate the propagation time of acoustic signals between speakers and microphones in</span>
+<span class="sd">    the array. With known transducer locations, the &#39;expected&#39; travel time can be calculated</span>
+<span class="sd">    with the current estimate of speed of sound (c) from the sonic anemometer.</span>
+
+<span class="sd">TDSI - time dependent stochastic inversion #TODO</span>
+<span class="sd">==============================================</span>
+<span class="sd">from the observed travel times, create over-determined least-squares regression to</span>
+<span class="sd">detmine fluctuation velocity and temperature fields in the array.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="meta_data"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.meta_data">[docs]</a><span class="k">class</span> <span class="nc">meta_data</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Base class for instrument or data record meta data.</span>
+<span class="sd">    Takes in a list of parameters and values.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span>
+
+<div class="viewcode-block" id="meta_data.from_data"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.meta_data.from_data">[docs]</a>    <span class="k">def</span> <span class="nf">from_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        pass data from constants file,</span>
+<span class="sd">        create attribute/value pairs</span>
+<span class="sd">        use to create meta data attributes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">keys</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="s1">&#39;__&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">x</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">inspect</span><span class="o">.</span><span class="n">ismodule</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">x</span><span class="p">])</span>
+        <span class="p">]</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="p">[</span><span class="n">data</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">keys</span><span class="p">]</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="meta_data.from_lists"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.meta_data.from_lists">[docs]</a>    <span class="k">def</span> <span class="nf">from_lists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        instantiate meta_data object from lists of attribute/value pairs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="meta_data.from_file"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.meta_data.from_file">[docs]</a>    <span class="k">def</span> <span class="nf">from_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        instantiate meta_data object from lists of file pairs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">values</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+<div class="viewcode-block" id="meta_data.to_list"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.meta_data.to_list">[docs]</a>    <span class="k">def</span> <span class="nf">to_list</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        pretty print list of attributes</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{:25}</span><span class="s1"> </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">v</span><span class="p">)))</span></div></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset">[docs]</a><span class="k">class</span> <span class="nc">dataset</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    dataset is the object class for raw data. It should contain a directory in where</span>
+<span class="sd">    raw data are to be found, data I/O routines, experiement constants, array</span>
+<span class="sd">    calibration info, etc.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1">####################################</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">datapath</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">datapath</span> <span class="o">=</span> <span class="n">datapath</span>
+        <span class="n">filelist</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">datapath</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mainfiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">filelist</span> <span class="k">if</span> <span class="s1">&#39;main&#39;</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">auxfiles</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">filelist</span> <span class="k">if</span> <span class="s1">&#39;aux&#39;</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">lower</span><span class="p">()]</span>
+        <span class="c1"># sanity check</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mainfiles</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">auxfiles</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Number of main files does not match number of aux files.&#39;</span><span class="p">)</span>
+
+        <span class="c1"># path to calibration data and constants</span>
+        <span class="n">caldatapath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">),</span> <span class="s1">&#39;calibration_data/&#39;</span><span class="p">)</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_meta</span><span class="p">(</span><span class="n">caldatapath</span><span class="p">)</span>
+        <span class="bp">self</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_calibration_info</span><span class="p">(</span><span class="n">caldatapath</span><span class="p">)</span>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.get_meta"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.get_meta">[docs]</a>    <span class="k">def</span> <span class="nf">get_meta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constantspath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        get meta data for experiment</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+<span class="sd">        constantspath: directory path to file containing meta data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">meta</span> <span class="o">=</span> <span class="n">meta_data</span><span class="p">()</span>
+        <span class="n">constants</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_constants</span><span class="p">(</span><span class="n">constantspath</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">from_data</span><span class="p">(</span><span class="n">constants</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.get_constants"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.get_constants">[docs]</a>    <span class="k">def</span> <span class="nf">get_constants</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">constantspath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        get values of constants used in experiment</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -------------</span>
+<span class="sd">        constantspath: str</span>
+<span class="sd">            path to directory containing &#39;constants.py&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">meta</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">machinery</span><span class="o">.</span><span class="n">SourceFileLoader</span><span class="p">(</span>
+            <span class="s1">&#39;constants&#39;</span><span class="p">,</span> <span class="n">constantspath</span> <span class="o">+</span> <span class="s1">&#39;constants.py&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">load_module</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="n">meta</span></div>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.get_calibration_info"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.get_calibration_info">[docs]</a>    <span class="k">def</span> <span class="nf">get_calibration_info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">caldatapath</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        get locations of speakers and mics, signal latency between particular devices,</span>
+<span class="sd">        and sound propagation delays from speakers as a function of azimuth</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -------------</span>
+<span class="sd">        caldatapath: str</span>
+<span class="sd">            path to directory containing raw data</span>
+<span class="sd">                - &#39;average_latency_yymmdd.csv&#39;</span>
+<span class="sd">                - &#39;mic_locations_yymmdd.csv&#39;</span>
+<span class="sd">                - &#39;speaker_locations_yymmdd.csv&#39;</span>
+<span class="sd">            and/or containing processed data to import</span>
+<span class="sd">                - &#39;offsets.py&#39;</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># offsets = importlib.import_module(caldatapath)</span>
+        <span class="n">offsets</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">machinery</span><span class="o">.</span><span class="n">SourceFileLoader</span><span class="p">(</span>
+            <span class="s1">&#39;offsets&#39;</span><span class="p">,</span> <span class="n">caldatapath</span> <span class="o">+</span> <span class="s1">&#39;offsets.py&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">load_module</span><span class="p">()</span>
+
+        <span class="c1"># latency 8 rows (speakers) by 8 columns (mics)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">latency</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">offsets</span><span class="o">.</span><span class="n">latency</span><span class="p">)</span>
+
+        <span class="c1"># mic_locations(northing, easting, elevation) in feet</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mic_locations</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">offsets</span><span class="o">.</span><span class="n">mic_locations</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mic_xy_m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_locations</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.3048</span>
+
+        <span class="c1"># speaker_locations(northing, easting, elevation) in feet</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">speaker_locations</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">offsets</span><span class="o">.</span><span class="n">speaker_locations</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">speaker_xy_m</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_locations</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">:</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="mf">0.3048</span>
+
+        <span class="c1"># physical distance between instruments</span>
+        <span class="c1"># east-west distance</span>
+        <span class="n">mx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_xy_m</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">mx</span> <span class="o">=</span> <span class="n">mx</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_xy_m</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>
+        <span class="n">sx</span> <span class="o">=</span> <span class="n">sx</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">distx</span> <span class="o">=</span> <span class="n">mx</span> <span class="o">-</span> <span class="n">sx</span>
+        <span class="c1"># north-south distance</span>
+        <span class="n">my</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_xy_m</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">my</span> <span class="o">=</span> <span class="n">my</span><span class="p">[:,</span> <span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">sy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_xy_m</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="n">sy</span> <span class="o">=</span> <span class="n">sy</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">newaxis</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">disty</span> <span class="o">=</span> <span class="n">my</span> <span class="o">-</span> <span class="n">sy</span>
+        <span class="c1"># euclidean distance between each speaker/mic combo</span>
+        <span class="c1"># instrument spacing is an 8x8 array (nspeakers, nmics)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">instrument_spacing</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">distx</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="n">disty</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.load_aux"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.load_aux">[docs]</a>    <span class="k">def</span> <span class="nf">load_aux</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampletime</span><span class="p">):</span>  <span class="c1">#maindatapath</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        load data file into dataset object</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -------------</span>
+<span class="sd">        aux_dataapath: str</span>
+<span class="sd">            path to directory containing aux data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">sampletime</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="n">sampletime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datapath</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">auxfiles</span><span class="p">[</span><span class="n">sampletime</span><span class="p">]</span>
+
+        <span class="c1"># column names for the data</span>
+        <span class="n">colnames</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;vx&#39;</span><span class="p">,</span> <span class="s1">&#39;vy&#39;</span><span class="p">,</span> <span class="s1">&#39;vz&#39;</span><span class="p">,</span> <span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="s1">&#39;T&#39;</span><span class="p">,</span> <span class="s1">&#39;H&#39;</span><span class="p">]</span>
+        <span class="c1"># load into pd.DataFrame</span>
+        <span class="n">aux_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="n">sampletime</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">colnames</span><span class="p">,</span> <span class="n">delim_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># get the timestamp from each filename</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">sampletime</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># calculate and assign timestamp as index</span>
+        <span class="n">aux_data</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">(</span>
+                <span class="n">freq</span><span class="o">=</span><span class="s1">&#39;0.05S&#39;</span><span class="p">,</span>
+                <span class="n">start</span><span class="o">=</span><span class="n">dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="s1">&#39;%Y%m</span><span class="si">%d</span><span class="s1">%H%M%S&#39;</span><span class="p">),</span>
+                <span class="n">periods</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">aux_data</span><span class="o">.</span><span class="n">index</span><span class="p">)),</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span> <span class="o">=</span> <span class="n">aux_data</span></div>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.load_main"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.load_main">[docs]</a>    <span class="k">def</span> <span class="nf">load_main</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">sampletime</span><span class="p">):</span>  <span class="c1">#maindatapath</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        load data file into dataset object</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -------------</span>
+<span class="sd">        maindatapath: str</span>
+<span class="sd">            path to directory containing main data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">sampletime</span><span class="p">)</span> <span class="ow">is</span> <span class="nb">int</span><span class="p">:</span>
+            <span class="n">sampletime</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">datapath</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">mainfiles</span><span class="p">[</span><span class="n">sampletime</span><span class="p">]</span>
+
+        <span class="c1"># column names for the data</span>
+        <span class="n">colnames</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;S</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;M</span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)]</span>
+
+        <span class="c1"># load into pd.DataFrame</span>
+        <span class="n">main_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+            <span class="n">sampletime</span><span class="p">,</span> <span class="n">skiprows</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">colnames</span><span class="p">,</span> <span class="n">delim_whitespace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># get the timestamp from each filename</span>
+        <span class="n">timestamp</span> <span class="o">=</span> <span class="n">sampletime</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># calculate and assign timestamp as index</span>
+        <span class="n">main_data</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span>
+            <span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">(</span>
+                <span class="n">freq</span><span class="o">=</span><span class="s1">&#39;50U&#39;</span><span class="p">,</span>
+                <span class="n">start</span><span class="o">=</span><span class="n">dt</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">timestamp</span><span class="p">,</span> <span class="s1">&#39;%Y%m</span><span class="si">%d</span><span class="s1">%H%M%S&#39;</span><span class="p">),</span>
+                <span class="n">periods</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">main_data</span><span class="o">.</span><span class="n">index</span><span class="p">)),</span>
+            <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># calculate the number of records within the file</span>
+        <span class="n">nrec</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">main_data</span><span class="p">)</span> <span class="o">/</span> <span class="mi">10000</span><span class="p">)</span>
+        <span class="n">recindex</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">main_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">ii</span> <span class="o">*</span> <span class="n">pd</span><span class="o">.</span><span class="n">Timedelta</span><span class="p">(</span><span class="n">value</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;s&#39;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nrec</span><span class="p">)</span>
+        <span class="p">]</span>
+        <span class="c1"># add record number as a series</span>
+        <span class="n">recdata</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;record </span><span class="si">{}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">ii</span><span class="p">)</span> <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">nrec</span><span class="p">)]</span>
+        <span class="n">recordseries</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">recdata</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">recindex</span><span class="p">)</span>
+        <span class="n">main_data</span><span class="p">[</span><span class="s1">&#39;record&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">recordseries</span>
+        <span class="n">main_data</span><span class="p">[</span><span class="s1">&#39;record&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">ffill</span><span class="p">(</span><span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="c1"># reindex by both the record number and the time index</span>
+        <span class="n">main_data</span><span class="o">.</span><span class="n">set_index</span><span class="p">([</span><span class="s1">&#39;record&#39;</span><span class="p">,</span> <span class="n">main_data</span><span class="o">.</span><span class="n">index</span><span class="p">],</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="c1"># self.main_data = main_data</span>
+
+        <span class="c1"># split into speaker data and mic data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span> <span class="o">=</span> <span class="n">main_data</span><span class="p">[[</span>
+            <span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">main_data</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="s1">&#39;S&#39;</span> <span class="ow">in</span> <span class="n">x</span>
+        <span class="p">]]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span> <span class="o">=</span> <span class="n">main_data</span><span class="p">[[</span><span class="n">x</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">main_data</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="s1">&#39;M&#39;</span> <span class="ow">in</span> <span class="n">x</span><span class="p">]]</span></div>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.load_data_sample"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.load_data_sample">[docs]</a>    <span class="k">def</span> <span class="nf">load_data_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fileID</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        load data file into dataset object</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -------------</span>
+<span class="sd">        fileID: int</span>
+<span class="sd">            integer value of main and aux data in respective lists</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">fileID</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mainfiles</span><span class="p">):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Ran out of data files ...&#39;</span><span class="p">)</span>
+            <span class="k">pass</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">load_main</span><span class="p">(</span><span class="n">fileID</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">load_aux</span><span class="p">(</span><span class="n">fileID</span><span class="p">)</span></div>
+
+        <span class="c1"># return self</span>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.time_info"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.time_info">[docs]</a>    <span class="k">def</span> <span class="nf">time_info</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        print time resolution of main and aux data</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">main_delta_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;main data data resolution = </span><span class="si">{}</span><span class="s1">us&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">main_delta_t</span><span class="o">.</span><span class="n">microseconds</span><span class="p">))</span>
+        <span class="n">main_span_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;main data spans </span><span class="si">{}</span><span class="s1">s&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">main_span_t</span><span class="o">.</span><span class="n">seconds</span><span class="p">))</span>
+
+        <span class="n">main_delta_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;main data data resolution = </span><span class="si">{}</span><span class="s1">us&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">main_delta_t</span><span class="o">.</span><span class="n">microseconds</span><span class="p">))</span>
+        <span class="n">main_span_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;main data spans </span><span class="si">{}</span><span class="s1">s&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">main_span_t</span><span class="o">.</span><span class="n">seconds</span><span class="p">))</span>
+
+        <span class="n">aux_delta_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;auxiliary data resolution = </span><span class="si">{}</span><span class="s1">us&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">aux_delta_t</span><span class="o">.</span><span class="n">microseconds</span><span class="p">))</span>
+        <span class="n">aux_span_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;auxiliary data spans </span><span class="si">{}</span><span class="s1">s&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">aux_span_t</span><span class="o">.</span><span class="n">seconds</span><span class="p">))</span></div>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.signal_ETAs"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.signal_ETAs">[docs]</a>    <span class="k">def</span> <span class="nf">signal_ETAs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        imports the current speaker (i) and microphone (j) as well as the temperature</span>
+<span class="sd">        array for the current signal period</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">c0</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">ETAs_time</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">instrument_spacing</span> <span class="o">/</span> <span class="n">c0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ETAs_index</span> <span class="o">=</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">instrument_spacing</span> <span class="o">/</span> <span class="n">c0</span><span class="p">)</span> <span class="o">/</span>
+                           <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">main_delta_t</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">))</span><span class="o">.</span><span class="n">round</span><span class="p">()</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span></div>
+
+    <span class="c1">####################################</span>
+<div class="viewcode-block" id="dataset.extract_travel_times"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.dataset.extract_travel_times">[docs]</a>    <span class="k">def</span> <span class="nf">extract_travel_times</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span>
+                             <span class="n">upsamplefactor</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                             <span class="n">searchLag</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                             <span class="n">filterflag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                             <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Main processing step of raw data.</span>
+
+<span class="sd">        Acoustic chirps are identified in speaker and microphone signals.</span>
+<span class="sd">        Travel time from each speaker to each mic are calculated.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        upsamplefactor: int</span>
+<span class="sd">            degree to which acoustic signals are upsampled. This is needed to</span>
+<span class="sd">            increase precision of travel time estimate</span>
+
+<span class="sd">        searchLag: int</span>
+<span class="sd">            acoustic signal window width. If none is provided, a default window</span>
+<span class="sd">            width is assigned of `searchLag = 3 * self.meta.chirp_record_length * upsamplefactor`</span>
+
+<span class="sd">        filterflag: bool</span>
+<span class="sd">            implement frequency filter to microphone signals to remove spurious</span>
+<span class="sd">            spectral contributions. Band-pass filter with acoustic chirp bandwidth</span>
+<span class="sd">            around the central frequency of the acoustic chip, with the bandwidth</span>
+
+<span class="sd">        verbose: bool</span>
+<span class="sd">            determine output text. used to debug.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">        --------</span>
+<span class="sd">        ATom_signals: np.ndarray [nspeakers, nmics, searchLag, nrecords]</span>
+<span class="sd">            acoustic chirps received by the microphones</span>
+
+<span class="sd">        travel_times: np.ndarray [nspeakers, nmics, nrecords]</span>
+<span class="sd">            travel times (ms) of chirps between each speaker and mic for each record</span>
+
+<span class="sd">        travel_inds: np.ndarray [nspeakers, nmics, nrecords]</span>
+<span class="sd">            travel times (samples) of chirps between each speaker and mic for each record</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># width of search window in index value</span>
+        <span class="k">if</span> <span class="n">searchLag</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">searchLag</span> <span class="o">=</span> <span class="mi">3</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">chirp_record_length</span> <span class="o">*</span> <span class="n">upsamplefactor</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;searchLag = &#39;</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">)</span>
+
+        <span class="c1"># get record ID&#39;s from speakers</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+        <span class="n">nrecords</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">)</span>
+
+        <span class="c1"># maximum resolved frequency of microphone</span>
+        <span class="n">max_freq</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">main_f_range</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+
+        <span class="c1"># get a speaker signals from a single record</span>
+        <span class="n">speakersamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">xs</span><span class="p">(</span><span class="n">records</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># get indices speaker signal offsets</span>
+        <span class="n">speaker_signal_delay</span> <span class="o">=</span> <span class="n">get_speaker_signal_delay</span><span class="p">(</span>
+            <span class="n">speakersamp</span><span class="p">)</span> <span class="o">*</span> <span class="n">upsamplefactor</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;speakerstarttime:&#39;</span><span class="p">,</span> <span class="n">speakerstarttime</span><span class="p">)</span>
+        <span class="c1"># if upsampling is required</span>
+        <span class="k">if</span> <span class="n">upsamplefactor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">speakersamp</span> <span class="o">=</span> <span class="n">upsample</span><span class="p">(</span><span class="n">speakersamp</span><span class="p">,</span> <span class="n">upsamplefactor</span><span class="p">)</span>
+
+        <span class="c1"># estimate signal travel times based on instrument locations and the</span>
+        <span class="c1"># average speed of sound reported in auxdata</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signal_ETAs</span><span class="p">()</span>
+        <span class="c1"># estimate arrival time of signals from speaker emission and spacing</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">signalETAs</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">ETAs_index</span><span class="o">.</span><span class="n">T</span> <span class="o">*</span> <span class="n">upsamplefactor</span> <span class="o">+</span> <span class="n">speaker_signal_delay</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;self.signalETAs (index):&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">signalETAs</span><span class="p">)</span>
+
+        <span class="c1">############# speaker signals</span>
+        <span class="c1"># get speaker signals and emission times</span>
+        <span class="n">speakersigs</span> <span class="o">=</span> <span class="n">signalOnSpeaker</span><span class="p">(</span>
+            <span class="n">speakersamp</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">,</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">chirp_record_length</span> <span class="o">*</span> <span class="n">upsamplefactor</span><span class="p">,</span>
+            <span class="n">speaker_signal_delay</span><span class="p">)</span>
+        <span class="c1"># adjust time index of channel three</span>
+        <span class="n">speakersigs</span><span class="p">[</span><span class="s1">&#39;S3&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rollchannel</span><span class="p">(</span>
+            <span class="n">speakersigs</span><span class="p">[</span><span class="s1">&#39;S3&#39;</span><span class="p">],</span>
+            <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">chirp_record_length</span> <span class="o">*</span> <span class="n">upsamplefactor</span><span class="p">))</span>
+
+        <span class="c1"># allocate space for travel times between each speaker/mic combo</span>
+        <span class="n">travel_times</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">nspeakers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">nmics</span><span class="p">,</span>
+                                 <span class="n">nrecords</span><span class="p">))</span>
+        <span class="n">travel_inds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">nspeakers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">nmics</span><span class="p">,</span>
+                                <span class="n">nrecords</span><span class="p">))</span>
+        <span class="c1"># allocate space for received signals (nspeakers, nmics, ndata, nrecords)</span>
+        <span class="n">ATom_signals</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">nspeakers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">nmics</span><span class="p">,</span>
+                                 <span class="n">searchLag</span><span class="p">,</span> <span class="n">nrecords</span><span class="p">))</span>
+
+        <span class="c1">############# Mic signals</span>
+        <span class="c1"># cycle through each record:</span>
+        <span class="c1"># detect speaker signal emissions</span>
+        <span class="c1"># detect microphone signal receptions</span>
+        <span class="k">for</span> <span class="n">nrec</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">records</span><span class="p">):</span>
+
+            <span class="c1"># extract a single record</span>
+            <span class="n">micsamp</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">xs</span><span class="p">(</span><span class="n">record</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+            <span class="c1"># filter mic signals to exclude frequencies outside desired range</span>
+            <span class="k">if</span> <span class="n">filterflag</span><span class="p">:</span>
+                <span class="n">micsamp</span> <span class="o">=</span> <span class="n">freq_filter</span><span class="p">(</span><span class="n">micsamp</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">filter_freq_inds</span><span class="p">)</span>
+
+            <span class="c1"># if upsampling is required</span>
+            <span class="k">if</span> <span class="n">upsamplefactor</span> <span class="ow">is</span> <span class="ow">not</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">micsamp</span> <span class="o">=</span> <span class="n">upsample</span><span class="p">(</span><span class="n">micsamp</span><span class="p">,</span> <span class="n">upsamplefactor</span><span class="p">)</span>
+
+            <span class="c1"># get microphone singals and reception times</span>
+            <span class="n">micsigs</span><span class="p">,</span> <span class="n">time_received</span> <span class="o">=</span> <span class="n">signalOnMic</span><span class="p">(</span>
+                <span class="n">micsamp</span><span class="p">,</span> <span class="n">speakersigs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">signalETAs</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">chirp_record_length</span> <span class="o">*</span> <span class="n">upsamplefactor</span><span class="p">)</span>
+
+            <span class="c1"># store extracted microphone signals, travel times, indices</span>
+            <span class="n">ATom_signals</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">nrec</span><span class="p">]</span> <span class="o">=</span> <span class="n">micsigs</span>
+            <span class="n">travel_times</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">nrec</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_received</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">meta</span><span class="o">.</span><span class="n">main_delta_t</span> <span class="o">/</span> <span class="n">upsamplefactor</span><span class="p">)</span>
+            <span class="n">travel_inds</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">nrec</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_received</span>
+
+        <span class="k">return</span> <span class="n">ATom_signals</span><span class="p">,</span> <span class="n">travel_times</span><span class="p">,</span> <span class="n">travel_inds</span></div></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="signalOnSpeaker"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.signalOnSpeaker">[docs]</a><span class="k">def</span> <span class="nf">signalOnSpeaker</span><span class="p">(</span><span class="n">speakersamp</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">,</span> <span class="n">chirp_record_length</span><span class="p">,</span>
+                    <span class="n">speaker_signal_delay</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract chirps from the speakers. These are generated signals, and</span>
+<span class="sd">    so are clean, consistent, and spaced by known amounts. Speaker</span>
+<span class="sd">    signals are compared against microphone signals to determine the</span>
+<span class="sd">    actual trasit time of acoustic chirps across the array.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    speakersamp: pd.DataFrame</span>
+<span class="sd">        speaker signals for a single record</span>
+
+<span class="sd">    searchLag: int</span>
+<span class="sd">        length of search window in samples</span>
+
+<span class="sd">    chirp_record_length: int</span>
+<span class="sd">        length of acoustic chirp in samples</span>
+<span class="sd">        base value = 116</span>
+<span class="sd">        multiplied by upsample factor</span>
+
+<span class="sd">    speaker_signal_delay: array</span>
+<span class="sd">        each speaker chirp is delayed by a specified amount</span>
+<span class="sd">        to offset the chirps in time</span>
+<span class="sd">        base values = [2480, 2080, 4080,    0, 3200, 4000,  800, 2880]</span>
+<span class="sd">        multiplied by upsample factor</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    speakersigs: pd.DataFrame</span>
+<span class="sd">        extracted speaker chirps, centered in a window of length searchLag</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># beginning index of speaker signal to extract</span>
+    <span class="n">signalstarts</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="n">speaker_signal_delay</span> <span class="o">+</span> <span class="n">chirp_record_length</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span>
+        <span class="n">searchLag</span> <span class="o">/</span> <span class="mi">2</span>
+    <span class="p">]</span>
+
+    <span class="c1"># end index of speaker signal to extract</span>
+    <span class="n">signalends</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="o">+</span> <span class="n">searchLag</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">signalstarts</span><span class="p">]</span>
+
+    <span class="c1"># make dict, sample data, return new dataframe</span>
+    <span class="n">sample</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">speakersamp</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="nb">range</span><span class="p">(</span><span class="n">signalstarts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">signalends</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">speaker_signal_delay</span><span class="p">))</span>
+    <span class="p">}</span>
+    <span class="n">speakersigs</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">speakersamp</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sample</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+    <span class="n">speakersigs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">speakersigs</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">speakersigs</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="signalOnMic"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.signalOnMic">[docs]</a><span class="k">def</span> <span class="nf">signalOnMic</span><span class="p">(</span><span class="n">micsamp</span><span class="p">,</span> <span class="n">speakersigs</span><span class="p">,</span> <span class="n">signalETAs</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">,</span>
+                <span class="n">chirp_record_length</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Extract chirps from the microphones. Each microphone receives</span>
+<span class="sd">    (nominally 8) chirps emitted by each speaker. Known speaker/mic locations,</span>
+<span class="sd">    along with known speaker chirp emission times, together provide</span>
+<span class="sd">    expected travel times from each speaker to each mic. Time correlation</span>
+<span class="sd">    between signals determines the precise time of chirp arrival and adds</span>
+<span class="sd">    to the expected signal travel times.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    micsamp: pd.DataFrame</span>
+<span class="sd">        microphone signals for a single record</span>
+
+<span class="sd">    speakersigs: pd.DataFrame</span>
+<span class="sd">        extracted acoustic chirps from &#39;signalOnSpeaker&#39;</span>
+
+<span class="sd">    searchLag: int</span>
+<span class="sd">        length of search window in samples</span>
+
+<span class="sd">    chirp_record_length: int</span>
+<span class="sd">        length of acoustic chirp in samples</span>
+<span class="sd">        base value = 116</span>
+<span class="sd">        multiplied by upsample factor</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    micsigs: pd.DataFrame</span>
+<span class="sd">        extracted speaker chirps, centered in a window of length searchLag</span>
+<span class="sd">        should be nSpeaker signals for each microphone</span>
+
+<span class="sd">    time_received_record: np.array</span>
+<span class="sd">        transit time of each acoustic signal in samples</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">signal_starts</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">signalETAs</span> <span class="o">+</span> <span class="p">(</span><span class="n">chirp_record_length</span> <span class="o">-</span> <span class="n">searchLag</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+    <span class="n">signal_starts</span><span class="p">[</span><span class="n">signal_starts</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">signal_ends</span> <span class="o">=</span> <span class="n">signal_starts</span> <span class="o">+</span> <span class="n">searchLag</span>
+
+    <span class="n">micsigs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">))</span>
+    <span class="n">time_received_record</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">mi</span><span class="p">,</span> <span class="n">mic</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">micsamp</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+
+        <span class="n">sample</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">speakersigs</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="nb">range</span><span class="p">(</span><span class="n">signal_starts</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">mi</span><span class="p">],</span>
+                                          <span class="n">signal_ends</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">mi</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="n">received_signals</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">micsamp</span><span class="p">[</span><span class="n">mic</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sample</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">received_signals</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">received_signals</span><span class="p">)</span>
+        <span class="n">micsigs</span><span class="p">[:,</span> <span class="n">mi</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">received_signals</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="n">covar</span> <span class="o">=</span> <span class="n">covariance</span><span class="p">(</span><span class="n">received_signals</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">speakersigs</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+        <span class="n">time_received</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>
+            <span class="n">offset</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">covar</span><span class="p">)</span>
+            <span class="n">time_received</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="n">signalETAs</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span> <span class="n">mi</span><span class="p">]</span> <span class="o">-</span> <span class="n">offset</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span>
+
+        <span class="n">time_received_record</span><span class="p">[:,</span> <span class="n">mi</span><span class="p">]</span> <span class="o">=</span> <span class="n">time_received</span>
+
+    <span class="k">return</span> <span class="n">micsigs</span><span class="p">,</span> <span class="n">time_received_record</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="get_speaker_signal_delay"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.get_speaker_signal_delay">[docs]</a><span class="k">def</span> <span class="nf">get_speaker_signal_delay</span><span class="p">(</span><span class="n">speakersamp</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    extract the speaker signal delays from a single record</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    -------------</span>
+<span class="sd">    speakersamp: pd.DataFrame</span>
+<span class="sd">        speaker time series data for a single record</span>
+
+<span class="sd">    Outputs</span>
+<span class="sd">    ----------</span>
+<span class="sd">    speaker_signal_delay: np.array</span>
+<span class="sd">        index corresponding to detected speaker signal delays</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># allocate space for signal delays</span>
+    <span class="n">nspeakers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">speakersamp</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">speaker_signal_delay</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nspeakers</span><span class="p">)</span>
+
+    <span class="c1"># get first index of non-zero value</span>
+    <span class="k">for</span> <span class="n">ic</span><span class="p">,</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">speakersamp</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="n">speaker_signal_delay</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">=</span> <span class="n">speakersamp</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span>
+    <span class="n">speaker_signal_delay</span> <span class="o">=</span> <span class="n">speaker_signal_delay</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">speaker_signal_delay</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="covariance"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.covariance">[docs]</a><span class="k">def</span> <span class="nf">covariance</span><span class="p">(</span><span class="n">micdat</span><span class="p">,</span> <span class="n">speakerdat</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Lag-N cross correlation between two signals.</span>
+<span class="sd">    Only the correlation between a speaker chirp and its respective</span>
+<span class="sd">    signal in each microphone record sample is required.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    micdat : pd.DataFrame</span>
+<span class="sd">        extracted microphone data containing received acoustic signals</span>
+
+<span class="sd">    speakerdat : pd.DataFrame</span>
+<span class="sd">        extracted speaeker acoustic signals</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----------</span>
+<span class="sd">    covar : float</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">micdat</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">speakerdat</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;size mismatch&#39;</span><span class="p">)</span>
+
+    <span class="n">covar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">micdat</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">):</span>
+        <span class="n">covar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span><span class="n">micdat</span><span class="p">[:,</span> <span class="n">ii</span><span class="p">],</span> <span class="n">speakerdat</span><span class="p">[:,</span> <span class="n">ii</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;same&#39;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">covar</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="rollchannel"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.rollchannel">[docs]</a><span class="k">def</span> <span class="nf">rollchannel</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">rollval</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    shifts values of data forward by rollval index</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    data : pandas.Series</span>
+<span class="sd">        data to shift in time</span>
+
+<span class="sd">    rolval : int</span>
+<span class="sd">        default 0</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    ----------</span>
+<span class="sd">    covar : float</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">roll</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">rollval</span><span class="p">))</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="butter_bandpass"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.butter_bandpass">[docs]</a><span class="k">def</span> <span class="nf">butter_bandpass</span><span class="p">(</span><span class="n">lowcut</span><span class="p">,</span> <span class="n">highcut</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    create band-pass frequency filter to isolate chirp frequency in mic singals</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    lowcut: float</span>
+<span class="sd">        lower limit of frequency band</span>
+
+<span class="sd">    highcut: float</span>
+<span class="sd">        upper limit of frequency band</span>
+
+<span class="sd">    fs: float</span>
+<span class="sd">        sampling frequency of data</span>
+
+<span class="sd">    order: int</span>
+<span class="sd">        filter order, default = 5</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    ----------</span>
+<span class="sd">    b, a : ndarray, ndarray</span>
+<span class="sd">        Numerator (b) and denominator (a) polynomials of the IIR filter. Only returned if output=&#39;ba&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">nyq</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">fs</span>
+    <span class="n">low</span> <span class="o">=</span> <span class="n">lowcut</span> <span class="o">/</span> <span class="n">nyq</span>
+    <span class="n">high</span> <span class="o">=</span> <span class="n">highcut</span> <span class="o">/</span> <span class="n">nyq</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">butter</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="p">[</span><span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">],</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;bandpass&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">b</span><span class="p">,</span> <span class="n">a</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="butter_bandpass_filter"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.butter_bandpass_filter">[docs]</a><span class="k">def</span> <span class="nf">butter_bandpass_filter</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">lowcut</span><span class="p">,</span> <span class="n">highcut</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    implement fileter on input data</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    data: np.arary</span>
+<span class="sd">        acoustic signal to be filtered (microphone data)</span>
+
+<span class="sd">    lowcut: float</span>
+<span class="sd">        lower limit of frequency band, passed to `butter_bandpass`</span>
+
+<span class="sd">    highcut: float</span>
+<span class="sd">        upper limit of frequency band, passed to `butter_bandpass`</span>
+
+<span class="sd">    fs: float</span>
+<span class="sd">        sampling frequency of data, passed to `butter_bandpass`</span>
+
+<span class="sd">    order: int</span>
+<span class="sd">        filter order, default = 5, passed to `butter_bandpass`</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    ---------</span>
+<span class="sd">    y: np.array</span>
+<span class="sd">        frequency-filtered data</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">b</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">butter_bandpass</span><span class="p">(</span><span class="n">lowcut</span><span class="p">,</span> <span class="n">highcut</span><span class="p">,</span> <span class="n">fs</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="n">order</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">sps</span><span class="o">.</span><span class="n">lfilter</span><span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">y</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="upsample"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.upsample">[docs]</a><span class="k">def</span> <span class="nf">upsample</span><span class="p">(</span><span class="n">datasample</span><span class="p">,</span> <span class="n">upsamplefactor</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    upsample data by desired factor using specified method</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    ------------</span>
+<span class="sd">    datasample: pd.DataFrame</span>
+<span class="sd">        microphone or speaker data to upsample</span>
+
+<span class="sd">    upsamplefactor: int, float</span>
+<span class="sd">        factor by which to upsample data</span>
+<span class="sd">        upsamplefactor &gt; 1 ==&gt; increase in time resolution</span>
+<span class="sd">        upsamplefactor &lt; 1 ==&gt; decrease in time resolution</span>
+
+<span class="sd">    method: str</span>
+<span class="sd">        method by which to interpolate data:</span>
+
+<span class="sd">        - pandas - built-in interp method, slow</span>
+
+<span class="sd">        - linear - linear interpolation</span>
+
+<span class="sd">        - cubic (default) - cubic interpolation</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    newdatasample: pd.DataFrame</span>
+<span class="sd">        upsampled data</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">delta_t</span> <span class="o">=</span> <span class="n">datasample</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">datasample</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">rule</span> <span class="o">=</span> <span class="n">delta_t</span> <span class="o">/</span> <span class="n">upsamplefactor</span>
+
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">is</span> <span class="s1">&#39;pandas&#39;</span><span class="p">:</span>
+        <span class="n">newdatasample</span> <span class="o">=</span> <span class="n">datasample</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">U&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+            <span class="n">rule</span><span class="o">.</span><span class="n">microseconds</span><span class="p">))</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="ow">is</span> <span class="s1">&#39;linear&#39;</span><span class="p">:</span>
+        <span class="n">xold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">datasample</span><span class="p">))</span>
+        <span class="n">xnew</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">datasample</span><span class="p">),</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">upsamplefactor</span><span class="p">)</span>
+        <span class="n">xnew</span> <span class="o">=</span> <span class="n">xnew</span><span class="p">[:</span><span class="o">-</span><span class="p">(</span><span class="n">upsamplefactor</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span>
+
+        <span class="n">interpolant</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">interpolate</span><span class="o">.</span><span class="n">interp1d</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">datasample</span><span class="p">)),</span> <span class="n">datasample</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+        <span class="n">newdatasample</span> <span class="o">=</span> <span class="n">interpolant</span><span class="p">(</span><span class="n">xnew</span><span class="p">)</span>
+
+        <span class="n">newdatasample</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">newdatasample</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="n">datasample</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">(</span>
+                <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">freq</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">U&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">microseconds</span><span class="p">),</span>
+                <span class="n">periods</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">xnew</span><span class="p">)))</span>
+
+    <span class="k">elif</span> <span class="n">method</span> <span class="ow">is</span> <span class="s1">&#39;cubic&#39;</span><span class="p">:</span>
+        <span class="n">xold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">datasample</span><span class="p">))</span>
+        <span class="n">xnew</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">datasample</span><span class="p">),</span> <span class="mi">1</span> <span class="o">/</span> <span class="n">upsamplefactor</span><span class="p">)</span>
+        <span class="n">xnew</span> <span class="o">=</span> <span class="n">xnew</span><span class="p">[:</span><span class="o">-</span><span class="p">(</span><span class="n">upsamplefactor</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span>
+
+        <span class="n">interpolant</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">interpolate</span><span class="o">.</span><span class="n">interp1d</span><span class="p">(</span>
+            <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">datasample</span><span class="p">)),</span> <span class="n">datasample</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="n">method</span><span class="p">)</span>
+        <span class="n">newdatasample</span> <span class="o">=</span> <span class="n">interpolant</span><span class="p">(</span><span class="n">xnew</span><span class="p">)</span>
+
+        <span class="n">newdatasample</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+            <span class="n">newdatasample</span><span class="p">,</span>
+            <span class="n">columns</span><span class="o">=</span><span class="n">datasample</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DatetimeIndex</span><span class="p">(</span>
+                <span class="n">start</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="n">freq</span><span class="o">=</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">U&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">rule</span><span class="o">.</span><span class="n">microseconds</span><span class="p">),</span>
+                <span class="n">periods</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">xnew</span><span class="p">)))</span>
+
+    <span class="k">return</span> <span class="n">newdatasample</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="freq_filter"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.freq_filter">[docs]</a><span class="k">def</span> <span class="nf">freq_filter</span><span class="p">(</span><span class="n">datasample</span><span class="p">,</span> <span class="n">filter_freq_inds</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    frequency filter to isolate chirp signal in microphones</span>
+<span class="sd">    brute force method takes FFT of datasample, sets frequecies</span>
+<span class="sd">    outside specified windows to zero, implements IFFT.</span>
+
+<span class="sd">    Probably produces ringing in data. Should probably use proper filter.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    datasample: np.array</span>
+<span class="sd">        data to filter</span>
+
+<span class="sd">    filter_freq_inds: np.array</span>
+<span class="sd">        key frequencies used in filter design.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ftmp</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">fftpack</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">datasample</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">ftmp</span><span class="p">[</span><span class="nb">range</span><span class="p">(</span><span class="n">filter_freq_inds</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">filter_freq_inds</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">ftmp</span><span class="p">[</span><span class="nb">range</span><span class="p">(</span><span class="n">filter_freq_inds</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">filter_freq_inds</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">ftmp</span><span class="p">[</span><span class="nb">range</span><span class="p">(</span><span class="n">filter_freq_inds</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">filter_freq_inds</span><span class="p">[</span><span class="mi">5</span><span class="p">]),</span> <span class="p">:]</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">mfilt</span> <span class="o">=</span> <span class="n">sp</span><span class="o">.</span><span class="n">fftpack</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">ftmp</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">datasample</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">mfilt</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="n">datasample</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">datasample</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">datasample</span></div>
+
+
+<span class="c1">####################################</span>
+<span class="k">def</span> <span class="nf">signalOnMic_depricated</span><span class="p">(</span><span class="n">micsamp</span><span class="p">,</span> <span class="n">speakersigs</span><span class="p">,</span> <span class="n">signalETAs</span><span class="p">,</span>
+                           <span class="n">speaker_signal_delay</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">,</span>
+                           <span class="n">chirp_record_length</span><span class="p">):</span>
+
+    <span class="n">signalstarts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span>
+        <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">if</span> <span class="n">s</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="p">(</span><span class="n">signalETAs</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span> <span class="o">+</span> <span class="n">chirp_record_length</span><span class="p">)</span> <span class="o">-</span>
+        <span class="mf">0.35</span> <span class="o">*</span> <span class="n">searchLag</span>
+    <span class="p">])</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+
+    <span class="n">signalends</span> <span class="o">=</span> <span class="n">signalstarts</span> <span class="o">+</span> <span class="n">searchLag</span>
+    <span class="n">micsigs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="n">searchLag</span><span class="p">))</span>
+
+    <span class="k">for</span> <span class="n">mi</span><span class="p">,</span> <span class="n">mic</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">micsamp</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+
+        <span class="n">sample</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">micsamp</span><span class="o">.</span><span class="n">columns</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="nb">range</span><span class="p">(</span><span class="n">signalstarts</span><span class="p">[:,</span> <span class="n">mi</span><span class="p">][</span><span class="n">i</span><span class="p">],</span>
+                                      <span class="n">signalends</span><span class="p">[:,</span> <span class="n">mi</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">8</span><span class="p">)</span>
+        <span class="p">}</span>
+
+        <span class="n">received_signals</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">k</span><span class="p">:</span> <span class="n">micsamp</span><span class="p">[</span><span class="n">mic</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">v</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">sample</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">received_signals</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">received_signals</span><span class="p">)</span>
+
+        <span class="n">tmp</span> <span class="o">=</span> <span class="n">received_signals</span><span class="o">.</span><span class="n">rolling</span><span class="p">(</span>
+            <span class="n">window</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">received_signals</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span><span class="p">),</span> <span class="n">center</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">cov</span><span class="p">(</span>
+                <span class="n">speakersigs</span><span class="p">,</span> <span class="n">pairwise</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="n">micsigs</span><span class="p">[:,</span> <span class="n">mi</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">received_signals</span><span class="o">.</span><span class="n">T</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">time_received</span> <span class="o">=</span> <span class="n">tmp</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">micsigs</span><span class="p">,</span> <span class="n">time_received</span>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="covariance_depricated"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.covariance_depricated">[docs]</a><span class="k">def</span> <span class="nf">covariance_depricated</span><span class="p">(</span><span class="n">micdat</span><span class="p">,</span> <span class="n">speakerdat</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Lag-N cross correlation.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    micdat : pd.DataFrame</span>
+<span class="sd">        extracted microphone data containing received acoustic signals</span>
+<span class="sd">    speakerdat : pd.DataFrame</span>
+<span class="sd">        extracted speaeker acoustic signals</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----------</span>
+<span class="sd">    covar : float</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">micdat</span><span class="o">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">speakerdat</span><span class="o">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;size mismatch&#39;</span><span class="p">)</span>
+
+    <span class="n">covar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">micdat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">micdat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">micdat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+    <span class="n">ncols</span> <span class="o">=</span> <span class="n">micdat</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncols</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">jj</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">ncols</span><span class="p">):</span>
+
+            <span class="n">covar</span><span class="p">[</span><span class="n">jj</span><span class="p">,</span> <span class="n">ii</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">correlate</span><span class="p">(</span>
+                <span class="n">micdat</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span> <span class="n">ii</span><span class="p">],</span> <span class="n">speakerdat</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span> <span class="n">jj</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;same&#39;</span><span class="p">)</span>
+
+    <span class="c1"># allocate space for signal delays</span>
+    <span class="n">nspeakers</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">speakersamp</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+    <span class="n">speaker_signal_delay</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">nspeakers</span><span class="p">)</span>
+
+    <span class="c1"># get first index of non-zero value</span>
+    <span class="k">for</span> <span class="n">ic</span><span class="p">,</span> <span class="n">col</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">speakersamp</span><span class="o">.</span><span class="n">columns</span><span class="p">):</span>
+        <span class="n">speaker_signal_delay</span><span class="p">[</span><span class="n">ic</span><span class="p">]</span> <span class="o">=</span> <span class="n">speakersamp</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">2</span>
+    <span class="n">speaker_signal_delay</span> <span class="o">=</span> <span class="n">speaker_signal_delay</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">covar</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="crosscorr_depricated"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.crosscorr_depricated">[docs]</a><span class="k">def</span> <span class="nf">crosscorr_depricated</span><span class="p">(</span><span class="n">datax</span><span class="p">,</span> <span class="n">datay</span><span class="p">,</span> <span class="n">lag</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot; Lag-N cross correlation.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    lag : int</span>
+<span class="sd">        default 0</span>
+
+<span class="sd">    datax, datay : pandas.Series</span>
+<span class="sd">        objects of equal length</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    ----------</span>
+<span class="sd">    covar : float</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">covar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">datax</span><span class="o">.</span><span class="n">corr</span><span class="p">(</span><span class="n">datay</span><span class="o">.</span><span class="n">shift</span><span class="p">(</span><span class="n">lag</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="n">covar</span></div>
+
+
+<span class="c1">####################################</span>
+<div class="viewcode-block" id="upsample_data_deptricated"><a class="viewcode-back" href="../../code.html#ATom.atom_functions.upsample_data_deptricated">[docs]</a><span class="k">def</span> <span class="nf">upsample_data_deptricated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">upsamplefactor</span><span class="p">):</span>  <span class="c1">#TODO</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    artificially upsample data to provide the desired resolution</span>
+<span class="sd">    new_timedelta = oldtimedelta / upsamplefactor</span>
+<span class="sd">    upsamplefactor &gt; 1 ==&gt; increase in time resolution</span>
+<span class="sd">    upsamplefactor &lt; 1 ==&gt; decrease in time resolution</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">    -------------</span>
+<span class="sd">    upsamplefactor: float or int</span>
+<span class="sd">        scale by which to resample data</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># cubic interpolation of aux_data</span>
+    <span class="n">delta_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">rule</span> <span class="o">=</span> <span class="n">delta_t</span> <span class="o">/</span> <span class="n">upsamplefactor</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aux_data</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">U&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">rule</span><span class="o">.</span><span class="n">microseconds</span><span class="p">))</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+
+    <span class="c1"># cubic interpolation of speaker data</span>
+    <span class="n">delta_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">rule</span> <span class="o">=</span> <span class="n">delta_t</span> <span class="o">/</span> <span class="n">upsamplefactor</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">speaker_data</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">U&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">rule</span><span class="o">.</span><span class="n">microseconds</span><span class="p">))</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span>
+
+    <span class="c1"># cubic interpolation of micdata</span>
+    <span class="n">delta_t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">rule</span> <span class="o">=</span> <span class="n">delta_t</span> <span class="o">/</span> <span class="n">upsamplefactor</span>
+
+    <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">mic_data</span><span class="o">.</span><span class="n">resample</span><span class="p">(</span><span class="s1">&#39;</span><span class="si">{}</span><span class="s1">U&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">rule</span><span class="o">.</span><span class="n">microseconds</span><span class="p">))</span><span class="o">.</span><span class="n">interpolate</span><span class="p">(</span><span class="n">method</span><span class="o">=</span><span class="s1">&#39;cubic&#39;</span><span class="p">)</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Nicholas Hamilton, James Hansen.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

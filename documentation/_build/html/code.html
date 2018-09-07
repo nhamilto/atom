@@ -1,0 +1,481 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Code Reference &#8212; ATom: acoustic tomography of the atomsphere 1.0 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '1.0',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="ATom: acoustic tomography of the atomspher" href="README.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head>
+  <body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="code-reference">
+<h1>Code Reference<a class="headerlink" href="#code-reference" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="atom-functions-module">
+<h2><code class="docutils literal"><span class="pre">atom_functions</span></code> module<a class="headerlink" href="#atom-functions-module" title="Permalink to this headline">¶</a></h2>
+<p>This module contains the fundamental object classes and functions of the package.</p>
+<span class="target" id="module-ATom.atom_functions"></span><dl class="function">
+<dt id="ATom.atom_functions.butter_bandpass">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">butter_bandpass</code><span class="sig-paren">(</span><em>lowcut</em>, <em>highcut</em>, <em>fs</em>, <em>order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#butter_bandpass"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.butter_bandpass" title="Permalink to this definition">¶</a></dt>
+<dd><p>create band-pass frequency filter to isolate chirp frequency in mic singals</p>
+<dl class="docutils">
+<dt>lowcut: float</dt>
+<dd>lower limit of frequency band</dd>
+<dt>highcut: float</dt>
+<dd>upper limit of frequency band</dd>
+<dt>fs: float</dt>
+<dd>sampling frequency of data</dd>
+<dt>order: int</dt>
+<dd>filter order, default = 5</dd>
+</dl>
+<dl class="docutils">
+<dt>b, a <span class="classifier-delimiter">:</span> <span class="classifier">ndarray, ndarray</span></dt>
+<dd>Numerator (b) and denominator (a) polynomials of the IIR filter. Only returned if output=’ba’.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.butter_bandpass_filter">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">butter_bandpass_filter</code><span class="sig-paren">(</span><em>data</em>, <em>lowcut</em>, <em>highcut</em>, <em>fs</em>, <em>order=5</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#butter_bandpass_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.butter_bandpass_filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>implement fileter on input data</p>
+<dl class="docutils">
+<dt>data: np.arary</dt>
+<dd>acoustic signal to be filtered (microphone data)</dd>
+<dt>lowcut: float</dt>
+<dd>lower limit of frequency band, passed to <cite>butter_bandpass</cite></dd>
+<dt>highcut: float</dt>
+<dd>upper limit of frequency band, passed to <cite>butter_bandpass</cite></dd>
+<dt>fs: float</dt>
+<dd>sampling frequency of data, passed to <cite>butter_bandpass</cite></dd>
+<dt>order: int</dt>
+<dd>filter order, default = 5, passed to <cite>butter_bandpass</cite></dd>
+</dl>
+<dl class="docutils">
+<dt>y: np.array</dt>
+<dd>frequency-filtered data</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.covariance">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">covariance</code><span class="sig-paren">(</span><em>micdat</em>, <em>speakerdat</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#covariance"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.covariance" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lag-N cross correlation between two signals.
+Only the correlation between a speaker chirp and its respective
+signal in each microphone record sample is required.</p>
+<dl class="docutils">
+<dt>micdat <span class="classifier-delimiter">:</span> <span class="classifier">pd.DataFrame</span></dt>
+<dd>extracted microphone data containing received acoustic signals</dd>
+<dt>speakerdat <span class="classifier-delimiter">:</span> <span class="classifier">pd.DataFrame</span></dt>
+<dd>extracted speaeker acoustic signals</dd>
+</dl>
+<p>covar : float</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.covariance_depricated">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">covariance_depricated</code><span class="sig-paren">(</span><em>micdat</em>, <em>speakerdat</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#covariance_depricated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.covariance_depricated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lag-N cross correlation.
+Parameters
+———-
+micdat : pd.DataFrame</p>
+<blockquote>
+<div>extracted microphone data containing received acoustic signals</div></blockquote>
+<dl class="docutils">
+<dt>speakerdat <span class="classifier-delimiter">:</span> <span class="classifier">pd.DataFrame</span></dt>
+<dd>extracted speaeker acoustic signals</dd>
+</dl>
+<p>covar : float</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.crosscorr_depricated">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">crosscorr_depricated</code><span class="sig-paren">(</span><em>datax</em>, <em>datay</em>, <em>lag=0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#crosscorr_depricated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.crosscorr_depricated" title="Permalink to this definition">¶</a></dt>
+<dd><p>Lag-N cross correlation.</p>
+<dl class="docutils">
+<dt>lag <span class="classifier-delimiter">:</span> <span class="classifier">int</span></dt>
+<dd>default 0</dd>
+<dt>datax, datay <span class="classifier-delimiter">:</span> <span class="classifier">pandas.Series</span></dt>
+<dd>objects of equal length</dd>
+</dl>
+<p>covar : float</p>
+</dd></dl>
+
+<dl class="class">
+<dt id="ATom.atom_functions.dataset">
+<em class="property">class </em><code class="descclassname">ATom.atom_functions.</code><code class="descname">dataset</code><span class="sig-paren">(</span><em>datapath</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset" title="Permalink to this definition">¶</a></dt>
+<dd><p>dataset is the object class for raw data. It should contain a directory in where
+raw data are to be found, data I/O routines, experiement constants, array
+calibration info, etc.</p>
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.extract_travel_times">
+<code class="descname">extract_travel_times</code><span class="sig-paren">(</span><em>upsamplefactor=10</em>, <em>searchLag=None</em>, <em>filterflag=True</em>, <em>verbose=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.extract_travel_times"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.extract_travel_times" title="Permalink to this definition">¶</a></dt>
+<dd><p>Main processing step of raw data.</p>
+<p>Acoustic chirps are identified in speaker and microphone signals.
+Travel time from each speaker to each mic are calculated.</p>
+<dl class="docutils">
+<dt>upsamplefactor: int</dt>
+<dd>degree to which acoustic signals are upsampled. This is needed to
+increase precision of travel time estimate</dd>
+<dt>searchLag: int</dt>
+<dd>acoustic signal window width. If none is provided, a default window
+width is assigned of <cite>searchLag = 3 * self.meta.chirp_record_length * upsamplefactor</cite></dd>
+<dt>filterflag: bool</dt>
+<dd>implement frequency filter to microphone signals to remove spurious
+spectral contributions. Band-pass filter with acoustic chirp bandwidth
+around the central frequency of the acoustic chip, with the bandwidth</dd>
+<dt>verbose: bool</dt>
+<dd>determine output text. used to debug.</dd>
+</dl>
+<dl class="docutils">
+<dt>ATom_signals: np.ndarray [nspeakers, nmics, searchLag, nrecords]</dt>
+<dd>acoustic chirps received by the microphones</dd>
+<dt>travel_times: np.ndarray [nspeakers, nmics, nrecords]</dt>
+<dd>travel times (ms) of chirps between each speaker and mic for each record</dd>
+<dt>travel_inds: np.ndarray [nspeakers, nmics, nrecords]</dt>
+<dd>travel times (samples) of chirps between each speaker and mic for each record</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.get_calibration_info">
+<code class="descname">get_calibration_info</code><span class="sig-paren">(</span><em>caldatapath</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.get_calibration_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.get_calibration_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>get locations of speakers and mics, signal latency between particular devices,
+and sound propagation delays from speakers as a function of azimuth</p>
+<dl class="docutils">
+<dt>caldatapath: str</dt>
+<dd><dl class="first last docutils">
+<dt>path to directory containing raw data</dt>
+<dd><ul class="first last simple">
+<li>‘average_latency_yymmdd.csv’</li>
+<li>‘mic_locations_yymmdd.csv’</li>
+<li>‘speaker_locations_yymmdd.csv’</li>
+</ul>
+</dd>
+<dt>and/or containing processed data to import</dt>
+<dd><ul class="first last simple">
+<li>‘offsets.py’</li>
+</ul>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.get_constants">
+<code class="descname">get_constants</code><span class="sig-paren">(</span><em>constantspath</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.get_constants"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.get_constants" title="Permalink to this definition">¶</a></dt>
+<dd><p>get values of constants used in experiment</p>
+<dl class="docutils">
+<dt>constantspath: str</dt>
+<dd>path to directory containing ‘constants.py’</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.get_meta">
+<code class="descname">get_meta</code><span class="sig-paren">(</span><em>constantspath</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.get_meta"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.get_meta" title="Permalink to this definition">¶</a></dt>
+<dd><p>get meta data for experiment</p>
+<p>constantspath: directory path to file containing meta data</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.load_aux">
+<code class="descname">load_aux</code><span class="sig-paren">(</span><em>sampletime</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.load_aux"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.load_aux" title="Permalink to this definition">¶</a></dt>
+<dd><p>load data file into dataset object</p>
+<dl class="docutils">
+<dt>aux_dataapath: str</dt>
+<dd>path to directory containing aux data</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.load_data_sample">
+<code class="descname">load_data_sample</code><span class="sig-paren">(</span><em>fileID</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.load_data_sample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.load_data_sample" title="Permalink to this definition">¶</a></dt>
+<dd><p>load data file into dataset object</p>
+<dl class="docutils">
+<dt>fileID: int</dt>
+<dd>integer value of main and aux data in respective lists</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.load_main">
+<code class="descname">load_main</code><span class="sig-paren">(</span><em>sampletime</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.load_main"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.load_main" title="Permalink to this definition">¶</a></dt>
+<dd><p>load data file into dataset object</p>
+<dl class="docutils">
+<dt>maindatapath: str</dt>
+<dd>path to directory containing main data</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.signal_ETAs">
+<code class="descname">signal_ETAs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.signal_ETAs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.signal_ETAs" title="Permalink to this definition">¶</a></dt>
+<dd><p>imports the current speaker (i) and microphone (j) as well as the temperature
+array for the current signal period</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.dataset.time_info">
+<code class="descname">time_info</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#dataset.time_info"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.dataset.time_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>print time resolution of main and aux data</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.freq_filter">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">freq_filter</code><span class="sig-paren">(</span><em>datasample</em>, <em>filter_freq_inds</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#freq_filter"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.freq_filter" title="Permalink to this definition">¶</a></dt>
+<dd><p>frequency filter to isolate chirp signal in microphones
+brute force method takes FFT of datasample, sets frequecies
+outside specified windows to zero, implements IFFT.</p>
+<p>Probably produces ringing in data. Should probably use proper filter.</p>
+<dl class="docutils">
+<dt>datasample: np.array</dt>
+<dd>data to filter</dd>
+<dt>filter_freq_inds: np.array</dt>
+<dd>key frequencies used in filter design.</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.get_speaker_signal_delay">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">get_speaker_signal_delay</code><span class="sig-paren">(</span><em>speakersamp</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#get_speaker_signal_delay"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.get_speaker_signal_delay" title="Permalink to this definition">¶</a></dt>
+<dd><p>extract the speaker signal delays from a single record</p>
+<dl class="docutils">
+<dt>speakersamp: pd.DataFrame</dt>
+<dd>speaker time series data for a single record</dd>
+</dl>
+<dl class="docutils">
+<dt>speaker_signal_delay: np.array</dt>
+<dd>index corresponding to detected speaker signal delays</dd>
+</dl>
+</dd></dl>
+
+<dl class="class">
+<dt id="ATom.atom_functions.meta_data">
+<em class="property">class </em><code class="descclassname">ATom.atom_functions.</code><code class="descname">meta_data</code><a class="reference internal" href="_modules/ATom/atom_functions.html#meta_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.meta_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Base class for instrument or data record meta data.
+Takes in a list of parameters and values.</p>
+<dl class="method">
+<dt id="ATom.atom_functions.meta_data.from_data">
+<code class="descname">from_data</code><span class="sig-paren">(</span><em>data</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#meta_data.from_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.meta_data.from_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>pass data from constants file,
+create attribute/value pairs
+use to create meta data attributes</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.meta_data.from_file">
+<code class="descname">from_file</code><span class="sig-paren">(</span><em>keys</em>, <em>values</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#meta_data.from_file"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.meta_data.from_file" title="Permalink to this definition">¶</a></dt>
+<dd><p>instantiate meta_data object from lists of file pairs</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.meta_data.from_lists">
+<code class="descname">from_lists</code><span class="sig-paren">(</span><em>keys</em>, <em>values</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#meta_data.from_lists"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.meta_data.from_lists" title="Permalink to this definition">¶</a></dt>
+<dd><p>instantiate meta_data object from lists of attribute/value pairs</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ATom.atom_functions.meta_data.to_list">
+<code class="descname">to_list</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#meta_data.to_list"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.meta_data.to_list" title="Permalink to this definition">¶</a></dt>
+<dd><p>pretty print list of attributes</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.rollchannel">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">rollchannel</code><span class="sig-paren">(</span><em>data</em>, <em>rollval</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#rollchannel"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.rollchannel" title="Permalink to this definition">¶</a></dt>
+<dd><p>shifts values of data forward by rollval index</p>
+<dl class="docutils">
+<dt>data <span class="classifier-delimiter">:</span> <span class="classifier">pandas.Series</span></dt>
+<dd>data to shift in time</dd>
+<dt>rolval <span class="classifier-delimiter">:</span> <span class="classifier">int</span></dt>
+<dd>default 0</dd>
+</dl>
+<p>covar : float</p>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.signalOnMic">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">signalOnMic</code><span class="sig-paren">(</span><em>micsamp</em>, <em>speakersigs</em>, <em>signalETAs</em>, <em>searchLag</em>, <em>chirp_record_length</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#signalOnMic"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.signalOnMic" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract chirps from the microphones. Each microphone receives
+(nominally 8) chirps emitted by each speaker. Known speaker/mic locations,
+along with known speaker chirp emission times, together provide
+expected travel times from each speaker to each mic. Time correlation
+between signals determines the precise time of chirp arrival and adds
+to the expected signal travel times.</p>
+<dl class="docutils">
+<dt>micsamp: pd.DataFrame</dt>
+<dd>microphone signals for a single record</dd>
+<dt>speakersigs: pd.DataFrame</dt>
+<dd>extracted acoustic chirps from ‘signalOnSpeaker’</dd>
+<dt>searchLag: int</dt>
+<dd>length of search window in samples</dd>
+<dt>chirp_record_length: int</dt>
+<dd>length of acoustic chirp in samples
+base value = 116
+multiplied by upsample factor</dd>
+</dl>
+<dl class="docutils">
+<dt>micsigs: pd.DataFrame</dt>
+<dd>extracted speaker chirps, centered in a window of length searchLag
+should be nSpeaker signals for each microphone</dd>
+<dt>time_received_record: np.array</dt>
+<dd>transit time of each acoustic signal in samples</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.signalOnSpeaker">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">signalOnSpeaker</code><span class="sig-paren">(</span><em>speakersamp</em>, <em>searchLag</em>, <em>chirp_record_length</em>, <em>speaker_signal_delay</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#signalOnSpeaker"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.signalOnSpeaker" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extract chirps from the speakers. These are generated signals, and
+so are clean, consistent, and spaced by known amounts. Speaker
+signals are compared against microphone signals to determine the
+actual trasit time of acoustic chirps across the array.</p>
+<dl class="docutils">
+<dt>speakersamp: pd.DataFrame</dt>
+<dd>speaker signals for a single record</dd>
+<dt>searchLag: int</dt>
+<dd>length of search window in samples</dd>
+<dt>chirp_record_length: int</dt>
+<dd>length of acoustic chirp in samples
+base value = 116
+multiplied by upsample factor</dd>
+<dt>speaker_signal_delay: array</dt>
+<dd>each speaker chirp is delayed by a specified amount
+to offset the chirps in time
+base values = [2480, 2080, 4080,    0, 3200, 4000,  800, 2880]
+multiplied by upsample factor</dd>
+</dl>
+<dl class="docutils">
+<dt>speakersigs: pd.DataFrame</dt>
+<dd>extracted speaker chirps, centered in a window of length searchLag</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.upsample">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">upsample</code><span class="sig-paren">(</span><em>datasample</em>, <em>upsamplefactor</em>, <em>method='cubic'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#upsample"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.upsample" title="Permalink to this definition">¶</a></dt>
+<dd><p>upsample data by desired factor using specified method</p>
+<dl class="docutils">
+<dt>datasample: pd.DataFrame</dt>
+<dd>microphone or speaker data to upsample</dd>
+<dt>upsamplefactor: int, float</dt>
+<dd>factor by which to upsample data
+upsamplefactor &gt; 1 ==&gt; increase in time resolution
+upsamplefactor &lt; 1 ==&gt; decrease in time resolution</dd>
+<dt>method: str</dt>
+<dd><p class="first">method by which to interpolate data:</p>
+<ul class="last simple">
+<li>pandas - built-in interp method, slow</li>
+<li>linear - linear interpolation</li>
+<li>cubic (default) - cubic interpolation</li>
+</ul>
+</dd>
+</dl>
+<dl class="docutils">
+<dt>newdatasample: pd.DataFrame</dt>
+<dd>upsampled data</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="ATom.atom_functions.upsample_data_deptricated">
+<code class="descclassname">ATom.atom_functions.</code><code class="descname">upsample_data_deptricated</code><span class="sig-paren">(</span><em>self</em>, <em>upsamplefactor</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/ATom/atom_functions.html#upsample_data_deptricated"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ATom.atom_functions.upsample_data_deptricated" title="Permalink to this definition">¶</a></dt>
+<dd><p>artificially upsample data to provide the desired resolution
+new_timedelta = oldtimedelta / upsamplefactor
+upsamplefactor &gt; 1 ==&gt; increase in time resolution
+upsamplefactor &lt; 1 ==&gt; decrease in time resolution</p>
+<dl class="docutils">
+<dt>upsamplefactor: float or int</dt>
+<dd>scale by which to resample data</dd>
+</dl>
+</dd></dl>
+
+<p>#``vis`` modules
+#===================
+#
+#A few shortcuts to make consistent and effective visualizations of fluid flows.
+#
+#.. automodule:: ATom.vis
+#    :members:</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper"><div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="README.html" title="previous chapter">ATom: acoustic tomography of the atomspher</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2018, Nicholas Hamilton, James Hansen.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.6.6</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.10</a>
+      
+      |
+      <a href="_sources/code.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
