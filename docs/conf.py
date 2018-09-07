@@ -55,7 +55,7 @@ source_suffix = ['.rst', '.md']
 master_doc = 'index'
 
 # General information about the project.
-project = 'ATom: acoustic tomography of the atomsphere'
+project = 'ATom'
 copyright = '2018, Nicholas Hamilton, James Hansen'
 author = 'Nicholas Hamilton, James Hansen'
 
@@ -91,7 +91,7 @@ todo_include_todos = True
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'classic'
 # html_theme_options = {"rightsidebar": "true", "relbarbgcolor": "black"}
 
 # Theme options are theme-specific and customize the look and feel of a theme
@@ -118,7 +118,7 @@ html_sidebars = {
 # -- Options for HTMLHelp output ------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'ATomacoustictomographyoftheatomspheredoc'
+htmlhelp_basename = 'ATom'
 
 # -- Options for LaTeX output ---------------------------------------------
 
