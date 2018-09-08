@@ -16,7 +16,6 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'ATom'
@@ -27,7 +26,6 @@ author = 'Nicholas Hamilton'
 version = ''
 # The full version, including alpha/beta/rc tags
 release = '1.0'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -42,14 +40,18 @@ extensions = [
     'sphinx.ext.githubpages',
 ]
 
+source_parsers = {
+    '.md': 'recommonmark.parser.CommonMarkParser',
+}
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.rst', '.md']
+# source_suffix = '.rst'
 
 # The master toctree document.
 master_doc = 'index'
@@ -68,7 +70,6 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
-
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -98,12 +99,10 @@ html_static_path = ['_static']
 #
 # html_sidebars = {}
 
-
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'ATomdoc'
-
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -129,20 +128,15 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'ATom.tex', 'ATom Documentation',
-     'Nicholas Hamilton', 'manual'),
+    (master_doc, 'ATom.tex', 'ATom Documentation', 'Nicholas Hamilton',
+     'manual'),
 ]
-
 
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'atom', 'ATom Documentation',
-     [author], 1)
-]
-
+man_pages = [(master_doc, 'atom', 'ATom Documentation', [author], 1)]
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -150,10 +144,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'ATom', 'ATom Documentation',
-     author, 'ATom', 'One line description of project.',
-     'Miscellaneous'),
+    (master_doc, 'ATom', 'ATom Documentation', author, 'ATom',
+     'One line description of project.', 'Miscellaneous'),
 ]
-
 
 # -- Extension configuration -------------------------------------------------

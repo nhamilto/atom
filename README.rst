@@ -5,8 +5,8 @@ Acoustic tomography of the atmosphere
 
 Getting Started
 ------------------------
-download the code repository from github: https://github.nrel.gov/nhamilto/ATom
-perform local editable installation: `pip install -e .'
+download the code repository from github: `https://github.nrel.gov/nhamilto/ATom`
+perform local editable installation: `pip install -e .`
 
 Required packages
 ------------------------
@@ -20,7 +20,7 @@ Python 3.6 - working knowledge
 
 Installing
 ------------------------
-Download or clone git repo:  https://github.nrel.gov/nhamilto/ATom
+Download or clone git repo:  `https://github.nrel.gov/nhamilto/ATom`
 Go to town.
 
 Version
@@ -30,10 +30,10 @@ The current version of the package is v.1.0.
 Authors
 ------------------------
 Nicholas Hamilton
-nicholas.hamilton@nrel.gov
+`nicholas.hamilton@nrel.gov`
 
 James Hansen
-jj.hansen@asu.edu
+`jj.hansen@asu.edu`
 
 License
 ------------------------
