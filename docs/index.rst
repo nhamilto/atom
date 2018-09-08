@@ -11,6 +11,7 @@ Welcome to ATom's documentation!
     :caption: Contents:
 
     includeme
+    code
 
 Indices and tables
 ==================
