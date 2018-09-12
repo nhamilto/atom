@@ -844,42 +844,42 @@ def signalOnMic_depricated(micsamp, speakersigs, signalETAs,
 
     return micsigs, time_received
 
+    # ####################################
+    # def covariance_depricated(micdat, speakerdat):
+    #     """
+    #     Lag-N cross correlation.
+    #     Parameters
+    #         micdat: pd.DataFrame
+    #             extracted microphone data containing received acoustic signals
+    #         speakerdat: pd.DataFrame
+    #             extracted speaeker acoustic signals
 
-####################################
-def covariance_depricated(micdat, speakerdat):
-    """ Lag-N cross correlation.
-    Parameters
-        micdat: pd.DataFrame
-            extracted microphone data containing received acoustic signals
-        speakerdat: pd.DataFrame
-            extracted speaeker acoustic signals
+    #     Returns
+    #         covar: float
+    #     """
 
-    Returns
-        covar: float
-    """
+    #     if micdat.shape != speakerdat.shape:
+    #         print('size mismatch')
 
-    if micdat.shape != speakerdat.shape:
-        print('size mismatch')
+    #     covar = np.zeros((micdat.shape[1], micdat.shape[1], micdat.shape[0]))
+    #     ncols = micdat.shape[1]
 
-    covar = np.zeros((micdat.shape[1], micdat.shape[1], micdat.shape[0]))
-    ncols = micdat.shape[1]
+    #     for ii in range(ncols):
+    #         for jj in range(ncols):
 
-    for ii in range(ncols):
-        for jj in range(ncols):
+    #             covar[jj, ii, :] = np.correlate(
+    #                 micdat.values[:, ii], speakerdat.values[:, jj], mode='same')
 
-            covar[jj, ii, :] = np.correlate(
-                micdat.values[:, ii], speakerdat.values[:, jj], mode='same')
+    #     # allocate space for signal delays
+    #     nspeakers = len(speakersamp.columns)
+    #     speaker_signal_delay = np.zeros(nspeakers)
 
-    # allocate space for signal delays
-    nspeakers = len(speakersamp.columns)
-    speaker_signal_delay = np.zeros(nspeakers)
+    #     # get first index of non-zero value
+    #     for ic, col in enumerate(speakersamp.columns):
+    #         speaker_signal_delay[ic] = speakersamp[col].nonzero()[0][0] - 2
+    #     speaker_signal_delay = speaker_signal_delay.astype(int)
 
-    # get first index of non-zero value
-    for ic, col in enumerate(speakersamp.columns):
-        speaker_signal_delay[ic] = speakersamp[col].nonzero()[0][0] - 2
-    speaker_signal_delay = speaker_signal_delay.astype(int)
-
-    return covar
+    # return covar
 
 
 ####################################

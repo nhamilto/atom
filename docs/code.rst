@@ -7,5 +7,5 @@ Code Reference
 
 This module contains the fundamental object class *dataset* of the package.
 
-.. automodule:: ATom.atom_functions.py
+.. automodule:: ATom.atom_functions
     :members:
