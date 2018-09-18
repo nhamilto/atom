@@ -42,7 +42,7 @@ detmine fluctuation velocity and temperature fields in the array.
 ####################################
 class meta_data(object):
     """
-    Base class for instrument or data record meta data.
+    Base class for instrument or experiment meta data.
     Takes in a list of parameters and values.
     """
 
@@ -103,13 +103,17 @@ class dataset(object):
         filelist = os.listdir(datapath)
         self.mainfiles = [x for x in filelist if 'main' in x.lower()]
         self.auxfiles = [x for x in filelist if 'aux' in x.lower()]
+        self.save_tt = [x.split('_')[0] + '_tt.csv' for x in self.auxfiles]
+        self.save_signals = [
+            x.split('_')[0] + '_signals.csv' for x in self.auxfiles
+        ]
         # sanity check
         if len(self.mainfiles) is not len(self.auxfiles):
             print('Number of main files does not match number of aux files.')
 
         # path to calibration data and constants
         caldatapath = os.path.join(
-            os.path.dirname(__file__), 'calibration_data/')
+            os.path.dirname(__file__), '..', 'calibration_data/')
         self = self.get_meta(caldatapath)
         self = self.get_calibration_info(caldatapath)
 
@@ -248,27 +252,24 @@ class dataset(object):
 
         # calculate and assign timestamp as index
         main_data.set_index(
-            pd.DatetimeIndex(
-                freq='50U',
-                start=dt.datetime.strptime(timestamp, '%Y%m%d%H%M%S'),
-                periods=len(main_data.index)),
+            pd.TimedeltaIndex(
+                freq='50U', start=0, periods=len(main_data.index)),
             inplace=True)
 
-        # calculate the number of records within the file
-        nrec = int(len(main_data) / 10000)
-        recindex = [
+        # calculate the number of frames within the file
+        nframe = int(len(main_data) / 10000)
+        frameindex = [
             main_data.index[0] + ii * pd.Timedelta(value=0.5, unit='s')
-            for ii in range(nrec)
+            for ii in range(nframe)
         ]
-        # add record number as a series
-        recdata = ['record {}'.format(ii) for ii in range(nrec)]
-        recordseries = pd.Series(data=recdata, index=recindex)
-        main_data['record'] = recordseries
-        main_data['record'].ffill(inplace=True)
+        # add frame number as a series
+        framedata = ['frame {}'.format(ii) for ii in range(nframe)]
+        frameseries = pd.Series(data=framedata, index=frameindex)
+        main_data['frame'] = frameseries
+        main_data['frame'].ffill(inplace=True)
 
-        # reindex by both the record number and the time index
-        main_data.set_index(['record', main_data.index], inplace=True)
-        # self.main_data = main_data
+        # reindex by both the frame number and the time index
+        main_data.set_index(['frame', main_data.index], inplace=True)
 
         # split into speaker data and mic data
         self.speaker_data = main_data[[
@@ -362,14 +363,14 @@ class dataset(object):
                 determine output text. used to debug.
 
         Returns:
-            ATom_signals: np.ndarray [nspeakers, nmics, searchLag, nrecords]
+            ATom_signals: np.ndarray [nspeakers, nmics, searchLag, nframes]
                 acoustic chirps received by the microphones
 
-            travel_times: np.ndarray [nspeakers, nmics, nrecords]
-                travel times (ms) of chirps between each speaker and mic for each record
+            travel_times: np.ndarray [nspeakers, nmics, nframes]
+                travel times (ms) of chirps between each speaker and mic for each frame
 
-            travel_inds: np.ndarray [nspeakers, nmics, nrecords]
-                travel times (samples) of chirps between each speaker and mic for each record
+            travel_inds: np.ndarray [nspeakers, nmics, nframes]
+                travel times (samples) of chirps between each speaker and mic for each frame
         """
 
         # width of search window in index value
@@ -378,20 +379,21 @@ class dataset(object):
         if verbose:
             print('searchLag = ', searchLag)
 
-        # get record ID's from speakers
-        records = list(self.speaker_data.index.unique(level=0))
-        nrecords = len(records)
-
+        # get frame ID's from speakers
+        frames = list(self.speaker_data.index.unique(level=0))
+        nframes = len(frames)
+        if verbose:
+            print('working with {} frames '.format(nframes))
         # maximum resolved frequency of microphone
         max_freq = self.meta.main_f_range.max()
 
-        # get a speaker signals from a single record
-        speakersamp = self.speaker_data.xs(records[0], level=0)
+        # get a speaker signals from a single frame
+        speakersamp = self.speaker_data.xs(frames[0], level=0)
         # get indices speaker signal offsets
         speaker_signal_delay = get_speaker_signal_delay(
             speakersamp) * upsamplefactor
         if verbose:
-            print('speakerstarttime:', speakerstarttime)
+            print('speakerstarttime:', speaker_signal_delay)
         # if upsampling is required
         if upsamplefactor is not 1:
             speakersamp = upsample(speakersamp, upsamplefactor)
@@ -418,21 +420,23 @@ class dataset(object):
 
         # allocate space for travel times between each speaker/mic combo
         travel_times = np.zeros((self.meta.nspeakers, self.meta.nmics,
-                                 nrecords))
-        travel_inds = np.zeros((self.meta.nspeakers, self.meta.nmics,
-                                nrecords))
-        # allocate space for received signals (nspeakers, nmics, ndata, nrecords)
+                                 nframes))
+        travel_inds = np.zeros((self.meta.nspeakers, self.meta.nmics, nframes))
+        # allocate space for received signals (nspeakers, nmics, ndata, nframes)
         ATom_signals = np.zeros((self.meta.nspeakers, self.meta.nmics,
-                                 searchLag, nrecords))
-
+                                 searchLag, nframes))
+        if verbose:
+            print(ATom_signals.shape)
         ############# Mic signals
-        # cycle through each record:
+        # cycle through each frame:
         # detect speaker signal emissions
         # detect microphone signal receptions
-        for nrec, record in enumerate(records):
+        for nframe, frame in enumerate(frames):
+            if verbose:
+                print('extracting from ' + frame)
 
-            # extract a single record
-            micsamp = self.mic_data.xs(record, level=0)
+            # extract a single frame
+            micsamp = self.mic_data.xs(frame, level=0)
 
             # filter mic signals to exclude frequencies outside desired range
             if filterflag:
@@ -448,10 +452,16 @@ class dataset(object):
                 self.meta.chirp_record_length * upsamplefactor)
 
             # store extracted microphone signals, travel times, indices
-            ATom_signals[..., nrec] = micsigs
-            travel_times[..., nrec] = time_received * (
+            ATom_signals[..., nframe] = micsigs
+            travel_times[..., nframe] = time_received * (
                 self.meta.main_delta_t / upsamplefactor)
-            travel_inds[..., nrec] = time_received
+            travel_inds[..., nframe] = time_received
+
+        # convert travel times and microphone signals into multi-index
+        # dataframes for easy storage
+        travel_times = tt_to_multiindex(travel_times)
+        ATom_signals = atomsigs_to_multiindex(ATom_signals, upsamplefactor,
+                                              self.meta.main_delta_t)
 
         return ATom_signals, travel_times, travel_inds
 
@@ -467,7 +477,7 @@ def signalOnSpeaker(speakersamp, searchLag, chirp_record_length,
 
     Parameters:
         speakersamp: pd.DataFrame
-            speaker signals for a single record
+            speaker signals for a single frame
 
         searchLag: int
             length of search window in samples
@@ -522,7 +532,7 @@ def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
 
     Parameters:
         micsamp: pd.DataFrame
-            microphone signals for a single record
+            microphone signals for a single frame
 
         speakersigs: pd.DataFrame
             extracted acoustic chirps from 'signalOnSpeaker'
@@ -549,15 +559,21 @@ def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
     signal_starts[signal_starts < 0] = 0
     signal_ends = signal_starts + searchLag
 
-    micsigs = np.zeros((8, 8, searchLag))
-    time_received_record = np.zeros((8, 8))
+    if signal_ends.ndim == 1:
+        signal_ends = signal_ends[:, np.newaxis]
+        signal_starts = signal_starts[:, np.newaxis]
+
+    nmics = len(micsamp.columns)
+    nspeakers = len(speakersigs.columns)
+
+    micsigs = np.zeros((nspeakers, nmics, searchLag))
+    time_received_record = np.zeros((nspeakers, nmics))
 
     for mi, mic in enumerate(micsamp.columns):
-
         sample = {
             speakersigs.columns[i]: range(signal_starts[i, mi],
                                           signal_ends[i, mi])
-            for i in range(8)
+            for i in range(nspeakers)
         }
 
         received_signals = {
@@ -568,9 +584,9 @@ def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
         micsigs[:, mi, :] = received_signals.T.values
 
         covar = covariance(received_signals.values, speakersigs.values)
-        offset = np.zeros(8)
-        time_received = np.zeros(8)
-        for ii in range(8):
+        offset = np.zeros(nspeakers)
+        time_received = np.zeros(nspeakers)
+        for ii in range(nspeakers):
             offset[ii] = np.argmax(covar)
             time_received[ii] = signalETAs[ii, mi] - offset[ii]
 
@@ -582,11 +598,11 @@ def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
 ####################################
 def get_speaker_signal_delay(speakersamp):
     """
-    extract the speaker signal delays from a single record
+    extract the speaker signal delays from a single frame
 
     Parameters
         speakersamp: pd.DataFrame
-            speaker time series data for a single record
+            speaker time series data for a single frame
 
     Returns:
         speaker_signal_delay: np.array
@@ -598,7 +614,8 @@ def get_speaker_signal_delay(speakersamp):
 
     # get first index of non-zero value
     for ic, col in enumerate(speakersamp.columns):
-        speaker_signal_delay[ic] = speakersamp[col].nonzero()[0][0] - 2
+        speaker_signal_delay[
+            ic] = speakersamp[col].round(5).nonzero()[0][0] - 2
     speaker_signal_delay = speaker_signal_delay.astype(int)
 
     return speaker_signal_delay
@@ -609,7 +626,7 @@ def covariance(micdat, speakerdat):
     """
     Lag-N cross correlation between two signals.
     Only the correlation between a speaker chirp and its respective
-    signal in each microphone record sample is required.
+    signal in each microphone frame sample is required.
 
     Parameters:
         micdat: pd.DataFrame
@@ -933,3 +950,88 @@ def upsample_data_deptricated(self, upsamplefactor):  #TODO
 
     self.mic_data = self.mic_data.resample('{}U'.format(
         rule.microseconds)).interpolate(method='cubic')
+
+
+####################################
+def tt_to_multiindex(tt):
+    """
+    Convert 3D array of travel times to a pandas MultiIndex
+
+    Parameters:
+        tt: np.ndarray
+            3D array of nspeakers x nmics x nframes
+
+    Returns:
+        ttdf: pd.MultiIndex
+            MultiIndex dataFrame of travel times
+    """
+    nspeakers, nmics, nframes = tt.shape
+
+    snames = ['S{}'.format(x) for x in range(nspeakers)]
+    mnames = ['M{}'.format(x) for x in range(nmics)]
+    fnames = ['frame {}'.format(x) for x in range(nframes)]
+
+    for ii in range(8):
+        temp = tt[:, ii, :]
+        tdf = pd.DataFrame(index=snames, data=temp, columns=fnames)
+        tdf.index.name = 'speaker'
+        tdf['mic'] = [mnames[ii] for x in range(8)]
+        tdf.set_index([tdf.index, 'mic'], inplace=True)
+        if ii == 0:
+            ttdf = tdf
+        else:
+            ttdf = pd.concat([ttdf, tdf])
+
+    return ttdf
+
+
+####################################
+def atomsigs_to_multiindex(atomsigs, upsamplefactor, main_delta_t):
+    """
+    Convert 4D array of acoustic signals to a pandas MultiIndex
+
+    Parameters:
+        atomsigs: np.ndarray
+            4D array of nspeakers x nmics x searchLag x nframes
+        upsamplefactor: int
+            factor by which original signals have been upsampled
+         main_delta_t: float
+            time delta (in milliseconds) between acoustic signal samples
+
+    Returns:
+        sigdf: pd.MultiIndex
+            MultiIndex dataFrame of acoustic signals
+    """
+
+    nspeakers, nmics, nsamp, nframes = atomsigs.shape
+
+    snames = ['S{}'.format(x) for x in range(nspeakers)]
+    mnames = ['M{}'.format(x) for x in range(nmics)]
+    fnames = ['frame {}'.format(x) for x in range(nframes)]
+    # get freq into us
+    freq = main_delta_t / 1000 / upsamplefactor * 1000000
+    # make a date time index
+    time_us = pd.DatetimeIndex(
+        start=0, periods=nsamp, freq='{}U'.format(freq)).microsecond
+
+    for jj in range(len(snames)):
+        for ii in range(len(mnames)):
+            # data for one mic/speaker pair, all times, all frames
+            temp = atomsigs[jj, ii, :, :]
+            tdf = pd.DataFrame(data=temp, columns=fnames)
+            tdf.set_index(time_us, inplace=True)
+            tdf.index.name = 'time_us'
+
+            # add mic and speaker columns
+            tdf['mic'] = [mnames[ii] for x in range(len(tdf))]
+            tdf['speaker'] = [snames[jj] for x in range(len(tdf))]
+
+            # triple MultiIndex (time, speaker, mic)
+            tdf.set_index([tdf.index, 'speaker', 'mic'], inplace=True)
+
+            if ii == 0 and jj == 0:
+                sigdf = tdf
+            else:
+                sigdf = pd.concat([sigdf, tdf])
+
+    return sigdf
