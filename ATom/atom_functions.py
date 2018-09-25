@@ -1001,6 +1001,7 @@ def atomsigs_to_multiindex(atomsigs, upsamplefactor, main_delta_t):
     Returns:
         sigdf: pd.MultiIndex
             MultiIndex dataFrame of acoustic signals
+
     """
 
     nspeakers, nmics, nsamp, nframes = atomsigs.shape
