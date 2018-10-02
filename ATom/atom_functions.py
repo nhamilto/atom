@@ -103,17 +103,24 @@ class dataset(object):
         filelist = os.listdir(datapath)
         self.mainfiles = [x for x in filelist if 'main' in x.lower()]
         self.auxfiles = [x for x in filelist if 'aux' in x.lower()]
+
+        # savefile names
         self.save_tt = [x.split('_')[0] + '_tt.csv' for x in self.auxfiles]
+        self.save_filtered_tt = [
+            x.split('_')[0] + 'filtered_tt.csv' for x in self.auxfiles
+        ]
         self.save_signals = [
             x.split('_')[0] + '_signals.csv' for x in self.auxfiles
         ]
+
         # sanity check
         if len(self.mainfiles) is not len(self.auxfiles):
             print('Number of main files does not match number of aux files.')
 
         # path to calibration data and constants
         caldatapath = os.path.join(
-            os.path.dirname(__file__), '..', 'calibration_data/')
+            os.path.dirname(__file__), '..',
+            'calibration_data/')  #TODO this should not be hardcoded!
         self = self.get_meta(caldatapath)
         self = self.get_calibration_info(caldatapath)
 
@@ -192,8 +199,10 @@ class dataset(object):
         disty = my - sy
         # euclidean distance between each speaker/mic combo
         # instrument spacing is an 8x8 array (nspeakers, nmics)
-        self.instrument_spacing = np.sqrt(distx**2 + disty**2)
+        self.path_lengths = np.sqrt(distx**2 + disty**2)
 
+        # Ad-hoc tuning of signal ETAs. #TODO figure this shit out.
+        self.ETA_index_offsets = offsets.ETA_index_offsets
         return self
 
     ####################################
@@ -277,6 +286,9 @@ class dataset(object):
         ]]
         self.mic_data = main_data[[x for x in main_data.columns if 'M' in x]]
 
+        self.micnames = self.mic_data.columns.tolist()
+        self.speakernames = self.speaker_data.columns.tolist()
+
     ####################################
     def load_data_sample(self, fileID):
         """
@@ -321,7 +333,7 @@ class dataset(object):
         print('auxiliary data spans {}s'.format(aux_span_t.seconds))
 
     ####################################
-    def signal_ETAs(self):
+    def estimate_travel_times(self):
         """
         imports the current speaker (i) and microphone (j) as well as the temperature
         array for the current signal period
@@ -329,15 +341,73 @@ class dataset(object):
 
         c0 = self.aux_data['c'].mean()
 
-        self.ETAs_time = self.instrument_spacing / c0
-        self.ETAs_index = ((self.instrument_spacing / c0) /
-                           (self.meta.main_delta_t / 1000)).round().astype(int)
+        self.expected_tt_time = self.path_lengths / c0
+        self.expected_tt_index = (
+            (self.path_lengths / c0) / (self.meta.main_delta_t / 1000)
+        ).round().astype(int) + self.ETA_index_offsets
+
+    ####################################
+    def mic_signal_window(self, searchLag, upsamplefactor, window_width):
+        """
+        calculate search windows for each microphone
+
+        Parameters
+            signal_ETA_index: np.array
+                index of expected speaker signal arrival time
+
+            searchLag: int
+                length of search window in samples
+
+        Returns:
+            window_indices: np.array
+                indices of search windows
+        """
+
+        windowshift = (window_width - 1) / (2 * window_width)
+
+        expected_tt_index = (self.expected_tt_index +
+                             self.meta.speaker_signal_delay[:, np.newaxis]
+                             .repeat(8, 1)) * upsamplefactor
+
+        micsamp = self.mic_data.xs('frame 0', level=0)
+        if upsamplefactor > 1:
+            micsamp = upsample(micsamp, upsamplefactor)
+
+        # Beginning of search window for each microphone
+        signal_starts = (
+            expected_tt_index - searchLag * windowshift).astype(int)
+        # End of search window for each microphone
+        signal_ends = signal_starts + searchLag
+
+        # adjust signals in case search window extends past
+        # beginning or end of recording
+        signal_ends[signal_starts < 0] += abs(signal_starts[signal_starts < 0])
+        signal_starts[signal_starts < 0] = 0
+
+        signal_starts[signal_ends > len(
+            micsamp)] -= signal_ends[signal_ends > len(micsamp)] - len(micsamp)
+        signal_ends[signal_ends > len(micsamp)] = len(micsamp)
+
+        nspeakers, nmics = expected_tt_index.shape
+
+        # make dict of dict of window limits
+        window_indices = {
+            self.micnames[mi]: {
+                self.speakernames[si]: (signal_starts[si, mi],
+                                        signal_ends[si, mi])
+                for si in range(nspeakers)
+            }
+            for mi in range(nmics)
+        }
+
+        return window_indices
 
     ####################################
     def extract_travel_times(self,
                              upsamplefactor=10,
                              searchLag=None,
-                             filterflag=True,
+                             window_width=3,
+                             filterflag='fft',
                              verbose=False):
         """
         Main processing step of raw data.
@@ -375,7 +445,7 @@ class dataset(object):
 
         # width of search window in index value
         if searchLag is None:
-            searchLag = 3 * self.meta.chirp_record_length * upsamplefactor
+            searchLag = window_width * self.meta.chirp_record_length * upsamplefactor
         if verbose:
             print('searchLag = ', searchLag)
 
@@ -389,44 +459,51 @@ class dataset(object):
 
         # get a speaker signals from a single frame
         speakersamp = self.speaker_data.xs(frames[0], level=0)
-        # get indices speaker signal offsets
-        speaker_signal_delay = get_speaker_signal_delay(
-            speakersamp) * upsamplefactor
         if verbose:
             print('speakerstarttime:', speaker_signal_delay)
         # if upsampling is required
         if upsamplefactor is not 1:
             speakersamp = upsample(speakersamp, upsamplefactor)
 
+        # get indices speaker signal offsets
+        speaker_signal_delay = self.meta.speaker_signal_delay * upsamplefactor
+        # speaker_signal_delay = get_speaker_signal_delay(speakersamp)
+
         # estimate signal travel times based on instrument locations and the
         # average speed of sound reported in auxdata
-        self.signal_ETAs()
+        self.estimate_travel_times()
         # estimate arrival time of signals from speaker emission and spacing
-        self.signalETAs = (
-            self.ETAs_index.T * upsamplefactor + speaker_signal_delay).T
+        self.signal_ETA_index = (
+            self.expected_tt_index.T * upsamplefactor + speaker_signal_delay).T
         if verbose:
-            print('self.signalETAs (index):', self.signalETAs)
+            print('self.signal_ETA_index (index):', self.signal_ETA_index)
 
         ############# speaker signals
         # get speaker signals and emission times
-        speakersigs = signalOnSpeaker(
-            speakersamp, searchLag,
-            self.meta.chirp_record_length * upsamplefactor,
-            speaker_signal_delay)
-        # adjust time index of channel three
-        speakersigs['S3'] = rollchannel(
-            speakersigs['S3'],
-            int(self.meta.chirp_record_length * upsamplefactor))
+        speakersigs = signalOnSpeaker(speakersamp, searchLag, window_width,
+                                      speaker_signal_delay, upsamplefactor)
+
+        self.speakersigs = speakersigs
+        # # adjust time index of channel three
+        # speakersigs['S3'] = rollchannel(
+        #     speakersigs['S3'],
+        #     int(self.meta.chirp_record_length * upsamplefactor))
+
+        # Calculate search windows
+        # these are the same for every frame, every recording,
+        # so onle needs to be done once.
+        window_indices = self.mic_signal_window(searchLag, upsamplefactor,
+                                                window_width)
 
         # allocate space for travel times between each speaker/mic combo
         travel_times = np.zeros((self.meta.nspeakers, self.meta.nmics,
                                  nframes))
-        travel_inds = np.zeros((self.meta.nspeakers, self.meta.nmics, nframes))
+        travel_time_inds = np.zeros((self.meta.nspeakers, self.meta.nmics,
+                                     nframes))
         # allocate space for received signals (nspeakers, nmics, ndata, nframes)
         ATom_signals = np.zeros((self.meta.nspeakers, self.meta.nmics,
                                  searchLag, nframes))
-        if verbose:
-            print(ATom_signals.shape)
+        offsets = np.zeros((self.meta.nspeakers, self.meta.nmics, nframes))
         ############# Mic signals
         # cycle through each frame:
         # detect speaker signal emissions
@@ -439,23 +516,40 @@ class dataset(object):
             micsamp = self.mic_data.xs(frame, level=0)
 
             # filter mic signals to exclude frequencies outside desired range
-            if filterflag:
+            if filterflag == 'fft':
                 micsamp = freq_filter(micsamp, self.meta.filter_freq_inds)
+
+            elif filterflag == 'butter':
+                lowcut = 1000 * (
+                    self.meta.chirp_freq - 1 * self.meta.chirp_bandWidth / 2)
+                hicut = 1000 * (
+                    self.meta.chirp_freq + 1 * self.meta.chirp_bandWidth / 2)
+                fs = self.meta.main_sampling_freq
+                micfilter = butter_bandpass_filter(micsamp, lowcut, hicut, fs)
+                micsamp = pd.DataFrame(
+                    data=micfilter,
+                    index=micsamp.index,
+                    columns=micsamp.columns)
 
             # if upsampling is required
             if upsamplefactor is not 1:
                 micsamp = upsample(micsamp, upsamplefactor)
 
             # get microphone singals and reception times
-            micsigs, time_received = signalOnMic(
-                micsamp, speakersigs, self.signalETAs, searchLag,
-                self.meta.chirp_record_length * upsamplefactor)
+            micsigs, index_received, offset = signalOnMic(
+                micsamp, speakersigs, window_indices, searchLag,
+                self.signal_ETA_index)
 
             # store extracted microphone signals, travel times, indices
             ATom_signals[..., nframe] = micsigs
-            travel_times[..., nframe] = time_received * (
-                self.meta.main_delta_t / upsamplefactor)
-            travel_inds[..., nframe] = time_received
+            travel_time_inds[
+                ..., nframe] = self.expected_tt_index * upsamplefactor + offset
+            #+ (offset / upsamplefactor).round().astype(int)
+            # time = index * 1000 / (samplingfreq * upsamplingfactor) to put into [ms]
+            travel_times[..., nframe] = travel_time_inds[..., nframe] / (
+                self.meta.main_sampling_freq * upsamplefactor) * 1000
+
+            offsets[..., nframe] = offset
 
         # convert travel times and microphone signals into multi-index
         # dataframes for easy storage
@@ -463,12 +557,12 @@ class dataset(object):
         ATom_signals = atomsigs_to_multiindex(ATom_signals, upsamplefactor,
                                               self.meta.main_delta_t)
 
-        return ATom_signals, travel_times, travel_inds
+        return ATom_signals, travel_times, travel_time_inds  #, offsets
 
 
 ####################################
-def signalOnSpeaker(speakersamp, searchLag, chirp_record_length,
-                    speaker_signal_delay):
+def signalOnSpeaker(speakersamp, searchLag, window_width, speaker_signal_delay,
+                    upsamplefactor):
     """
     Extract chirps from the speakers. These are generated signals, and
     so are clean, consistent, and spaced by known amounts. Speaker
@@ -482,10 +576,8 @@ def signalOnSpeaker(speakersamp, searchLag, chirp_record_length,
         searchLag: int
             length of search window in samples
 
-        chirp_record_length: int
-            length of acoustic chirp in samples
-            base value = 116
-            multiplied by upsample factor
+        window_width: int
+            multiple of the chirp length used for
 
         speaker_signal_delay: array
             each speaker chirp is delayed by a specified amount
@@ -499,14 +591,14 @@ def signalOnSpeaker(speakersamp, searchLag, chirp_record_length,
     """
 
     # beginning index of speaker signal to extract
-    signalstarts = [
-        int(s) if s > 0 else 0
-        for s in (speaker_signal_delay + chirp_record_length / 2) -
-        searchLag / 2
-    ]
+    windowshift = (window_width - 1) / (2 * window_width)
+
+    signalstarts = (speaker_signal_delay - searchLag * windowshift).astype(int)
+    signalstarts[signalstarts < 0] = 0
 
     # end index of speaker signal to extract
-    signalends = [s + searchLag for s in signalstarts]
+    signalends = (signalstarts + searchLag).astype(
+        int)  #[s + searchLag for s in signalstarts]
 
     # make dict, sample data, return new dataframe
     sample = {
@@ -516,12 +608,18 @@ def signalOnSpeaker(speakersamp, searchLag, chirp_record_length,
     speakersigs = {k: speakersamp[k].iloc[v].values for k, v in sample.items()}
     speakersigs = pd.DataFrame.from_dict(speakersigs)
 
+    speakersigs.index = pd.TimedeltaIndex(
+        freq='{}U'.format(50 / upsamplefactor),
+        start=0,
+        periods=len(speakersigs)).microseconds
+    speakersigs.index.name = 'time_us'
+
     return speakersigs
 
 
 ####################################
-def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
-                chirp_record_length):
+def signalOnMic(micsamp, speakersigs, window_indices, searchLag,
+                signal_ETA_index):
     """
     Extract chirps from the microphones. Each microphone receives
     (nominally 8) chirps emitted by each speaker. Known speaker/mic locations,
@@ -537,13 +635,17 @@ def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
         speakersigs: pd.DataFrame
             extracted acoustic chirps from 'signalOnSpeaker'
 
+        window_indices: dict
+            dictionary describing the search windows for each
+            speaker signal within each mic recording
+            e.g. 'Mi': 'Sj': (start, end) ...
+
         searchLag: int
             length of search window in samples
 
-        chirp_record_length: int
-            length of acoustic chirp in samples
-            base value = 116
-            multiplied by upsample factor
+        signal_ETA_index: np.array
+            index corresponding to the expecter arrival time of each
+            speakersignal on each microhpone
 
     Returns:
         micsigs: pd.DataFrame
@@ -554,45 +656,32 @@ def signalOnMic(micsamp, speakersigs, signalETAs, searchLag,
             transit time of each acoustic signal in samples
     """
 
-    signal_starts = (
-        signalETAs + (chirp_record_length - searchLag) / 2).astype(int)
-    signal_starts[signal_starts < 0] = 0
-    signal_ends = signal_starts + searchLag
-
-    if signal_ends.ndim == 1:
-        signal_ends = signal_ends[:, np.newaxis]
-        signal_starts = signal_starts[:, np.newaxis]
-
     nmics = len(micsamp.columns)
     nspeakers = len(speakersigs.columns)
 
+    # allocate space for extracted mic signals
     micsigs = np.zeros((nspeakers, nmics, searchLag))
-    time_received_record = np.zeros((nspeakers, nmics))
+    index_received = np.zeros((nspeakers, nmics))
+    offset = np.zeros((nspeakers, nmics))
 
     for mi, mic in enumerate(micsamp.columns):
-        sample = {
-            speakersigs.columns[i]: range(signal_starts[i, mi],
-                                          signal_ends[i, mi])
-            for i in range(nspeakers)
-        }
 
-        received_signals = {
-            k: micsamp[mic].iloc[v].values
-            for k, v in sample.items()
-        }
-        received_signals = pd.DataFrame.from_dict(received_signals)
-        micsigs[:, mi, :] = received_signals.T.values
+        # extract seach windows for each speaker signal
+        # from a mic recording
+        for si, spk in enumerate(speakersigs.columns):
+            micsigs[si, mi, :] = micsamp[mic].iloc[window_indices[mic][spk][0]:
+                                                   window_indices[mic][spk][1]]
 
-        covar = covariance(received_signals.values, speakersigs.values)
-        offset = np.zeros(nspeakers)
-        time_received = np.zeros(nspeakers)
-        for ii in range(nspeakers):
-            offset[ii] = np.argmax(covar)
-            time_received[ii] = signalETAs[ii, mi] - offset[ii]
+        # micsigs[:, mi, :] = micsamp[mic].iloc
+        # calculate covariance between extracted mic sample and speaker signal
+        covar = covariance(micsigs[:, mi, :].T, speakersigs.values)
 
-        time_received_record[:, mi] = time_received
+        # difference between expected and observed arrival times
+        offset[:, mi] = np.argmax(covar, axis=0) - searchLag / 2
 
-    return micsigs, time_received_record
+        index_received[:, mi] = signal_ETA_index[:, mi] + offset[:, mi]
+
+    return micsigs, index_received, offset.astype(int)
 
 
 ####################################
@@ -614,8 +703,7 @@ def get_speaker_signal_delay(speakersamp):
 
     # get first index of non-zero value
     for ic, col in enumerate(speakersamp.columns):
-        speaker_signal_delay[
-            ic] = speakersamp[col].round(5).nonzero()[0][0] - 2
+        speaker_signal_delay[ic] = speakersamp[col].round(2).nonzero()[0][0]
     speaker_signal_delay = speaker_signal_delay.astype(int)
 
     return speaker_signal_delay
@@ -629,10 +717,10 @@ def covariance(micdat, speakerdat):
     signal in each microphone frame sample is required.
 
     Parameters:
-        micdat: pd.DataFrame
+        micdat: np.array
             extracted microphone data containing received acoustic signals
 
-        speakerdat: pd.DataFrame
+        speakerdat: np.array
             extracted speaeker acoustic signals
 
     Returns
@@ -646,7 +734,8 @@ def covariance(micdat, speakerdat):
     covar = np.zeros(micdat.shape)
 
     for ii in range(8):
-        covar = np.correlate(micdat[:, ii], speakerdat[:, ii], mode='same')
+        covar[:, ii] = np.correlate(
+            micdat[:, ii], speakerdat[:, ii], mode='same')
 
     return covar
 
@@ -697,7 +786,12 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
 
 
 ####################################
-def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+def butter_bandpass_filter(data,
+                           lowcut,
+                           highcut,
+                           fs,
+                           order=5,
+                           fixtimedelay=True):
     """
     implement fileter on input data
 
@@ -722,8 +816,24 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
             frequency-filtered data
 
     """
+    # determine expected time delay from 'ideal' filter
+    td_exp = {
+        k: v
+        for k, v in zip(
+            np.arange(2, 11),
+            np.array([
+                0.225, 0.318, 0.416, 0.515, 0.615, 0.715, 0.816, 0.917, 1.017
+            ]))
+    }
+    td_exp = td_exp[order] / highcut
+    rollval = int(np.round(td_exp * fs))
+
     b, a = butter_bandpass(lowcut, highcut, fs, order=order)
     y = sps.lfilter(b, a, data, axis=0)
+
+    if fixtimedelay:
+        y = np.roll(y, -rollval)
+
     return y
 
 
@@ -814,89 +924,17 @@ def freq_filter(datasample, filter_freq_inds):
             key frequencies used in filter design.
     """
     ftmp = sp.fftpack.fft(datasample, axis=0)
+
     ftmp[range(filter_freq_inds[0], filter_freq_inds[1]), :] = 0
     ftmp[range(filter_freq_inds[2], filter_freq_inds[3]), :] = 0
     ftmp[range(filter_freq_inds[4], filter_freq_inds[5]), :] = 0
+
     mfilt = sp.fftpack.ifft(ftmp, axis=0)
+
     datasample = pd.DataFrame(
         np.real(mfilt), columns=datasample.columns, index=datasample.index)
 
     return datasample
-
-
-####################################
-def signalOnMic_depricated(micsamp, speakersigs, signalETAs,
-                           speaker_signal_delay, searchLag,
-                           chirp_record_length):
-
-    signalstarts = np.array([
-        int(s) if s > 0 else 0
-        for s in (signalETAs.flatten() + chirp_record_length) -
-        0.35 * searchLag
-    ]).reshape(8, 8)
-
-    signalends = signalstarts + searchLag
-    micsigs = np.zeros((8, 8, searchLag))
-
-    for mi, mic in enumerate(micsamp.columns):
-
-        sample = {
-            micsamp.columns[i]: range(signalstarts[:, mi][i],
-                                      signalends[:, mi][i])
-            for i in range(8)
-        }
-
-        received_signals = {
-            k: micsamp[mic].iloc[v].values
-            for k, v in sample.items()
-        }
-        received_signals = pd.DataFrame.from_dict(received_signals)
-
-        tmp = received_signals.rolling(
-            window=int(len(received_signals) / 4), center=True).cov(
-                speakersigs, pairwise=True)
-
-        micsigs[:, mi, :] = received_signals.T.values
-        time_received = tmp.unstack().idxmax().unstack()
-
-    return micsigs, time_received
-
-    # ####################################
-    # def covariance_depricated(micdat, speakerdat):
-    #     """
-    #     Lag-N cross correlation.
-    #     Parameters
-    #         micdat: pd.DataFrame
-    #             extracted microphone data containing received acoustic signals
-    #         speakerdat: pd.DataFrame
-    #             extracted speaeker acoustic signals
-
-    #     Returns
-    #         covar: float
-    #     """
-
-    #     if micdat.shape != speakerdat.shape:
-    #         print('size mismatch')
-
-    #     covar = np.zeros((micdat.shape[1], micdat.shape[1], micdat.shape[0]))
-    #     ncols = micdat.shape[1]
-
-    #     for ii in range(ncols):
-    #         for jj in range(ncols):
-
-    #             covar[jj, ii, :] = np.correlate(
-    #                 micdat.values[:, ii], speakerdat.values[:, jj], mode='same')
-
-    #     # allocate space for signal delays
-    #     nspeakers = len(speakersamp.columns)
-    #     speaker_signal_delay = np.zeros(nspeakers)
-
-    #     # get first index of non-zero value
-    #     for ic, col in enumerate(speakersamp.columns):
-    #         speaker_signal_delay[ic] = speakersamp[col].nonzero()[0][0] - 2
-    #     speaker_signal_delay = speaker_signal_delay.astype(int)
-
-    # return covar
 
 
 ####################################
@@ -915,41 +953,6 @@ def crosscorr_depricated(datax, datay, lag=0):
     """
     covar = np.abs(datax.corr(datay.shift(lag)))
     return covar
-
-
-####################################
-def upsample_data_deptricated(self, upsamplefactor):  #TODO
-    """
-    artificially upsample data to provide the desired resolution
-    new_timedelta = oldtimedelta / upsamplefactor
-    upsamplefactor > 1 ==> increase in time resolution
-    upsamplefactor < 1 ==> decrease in time resolution
-
-    Parameters:
-        upsamplefactor: float or int
-            scale by which to resample data
-
-    """
-    # cubic interpolation of aux_data
-    delta_t = self.aux_data.index[1] - self.aux_data.index[0]
-    rule = delta_t / upsamplefactor
-
-    self.aux_data = self.aux_data.resample('{}U'.format(
-        rule.microseconds)).interpolate(method='cubic')
-
-    # cubic interpolation of speaker data
-    delta_t = self.speaker_data.index[1] - self.speaker_data.index[0]
-    rule = delta_t / upsamplefactor
-
-    self.speaker_data = self.speaker_data.resample('{}U'.format(
-        rule.microseconds)).interpolate(method='cubic')
-
-    # cubic interpolation of micdata
-    delta_t = self.mic_data.index[1] - self.mic_data.index[0]
-    rule = delta_t / upsamplefactor
-
-    self.mic_data = self.mic_data.resample('{}U'.format(
-        rule.microseconds)).interpolate(method='cubic')
 
 
 ####################################
@@ -1036,3 +1039,109 @@ def atomsigs_to_multiindex(atomsigs, upsamplefactor, main_delta_t):
                 sigdf = pd.concat([sigdf, tdf])
 
     return sigdf
+
+
+####################################
+def get_sample(dataset, fn=0):
+    """
+    extract speaker and mic samples for testing
+    """
+    fn = 'frame {}'.format(fn)
+
+    micsamp = dataset.mic_data.xs(fn, level=0)
+    speakersamp = dataset.mic_data.xs(fn, level=0)
+
+    return micsamp, speakersamp
+
+
+####################################
+def nan_helper(y):
+    """Helper to handle indices and logical indices of NaNs.
+
+    Parameters:
+        y: 1d numpy array with possible NaNs
+
+    Returns:
+        nans: bool
+            logical indices of NaNs
+        x: a function
+            signature indices= index(logical_indices),
+            to convert logical indices of NaNs to 'equivalent' indices
+    Example:
+        >>> # linear interpolation of NaNs
+        >>> nans, x= nan_helper(y)
+        >>> y[nans]= np.interp(x(nans), x(~nans), y[~nans])
+    """
+
+    return np.isnan(y), lambda z: z.nonzero()[0]
+
+
+####################################
+def ttfilter(y):
+    """
+    filter of travel times of acoustic signals
+
+    Parameters:
+        y: 1d numpy array with possible NaNs
+
+    Returns:
+        ytmp: filtered tt series
+    """
+    ytmp = y.copy()
+
+    b, a = sp.signal.butter(3, 0.1)
+    yfilt = sp.signal.filtfilt(b, a, ytmp)
+
+    pout = np.abs(ytmp - yfilt)
+
+    outlierinds = np.argwhere(pout > 0.3)
+
+    ytmp[outlierinds] = np.NaN
+    nans, x = nan_helper(ytmp)
+
+    # replace outliers
+    ytmp[nans] = np.interp(x(nans), x(~nans), ytmp[~nans])
+
+    return ytmp
+
+
+####################################
+def filter_travel_times(travel_times):
+    """
+    implements a basic low-pass filter on recorded travel times
+    identifies outliers, removes them, interpolates over missing values
+
+    Parameters:
+        travel_times: pd.DataFrame
+            travel times of acoustic tomography signals
+
+    Returns:
+        travel_times_filtered: pd.DataFrame
+            filtered travel times of acoustic tomography signals
+    """
+
+    # nsig, nframe = ttdata.shape
+
+    # travel_times_filtered = pd.DataFrame(
+    #     index=travel_times.index, columns=travel_times.columns)
+
+    # for path in travel_times.index.values:
+    #     travel_times_filtered.loc[path] = ttfilter(travel_times.loc[path])
+
+    travel_times_filtered = pd.DataFrame(
+        index=travel_times.index, columns=travel_times.columns)
+
+    for path in travel_times.index.values:
+        travel_times_filtered.loc[path] = ttfilter(travel_times.loc[path])
+    # for ns in range(nsig):
+    #     ttraw = ttdata[ns, :].squeeze()
+    #     ttfilt = ttfilter(ttraw)
+
+    #     ttdata_filtered[ns, :] = ttfilt
+
+    # travel_times_filtered = pd.DataFrame(
+    #     data=ttdata_filtered,
+    #     index=travel_times.index,
+    #     columns=travel_times.columns)
+
+    return travel_times_filtered

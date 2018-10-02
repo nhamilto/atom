@@ -64,10 +64,7 @@ filter_freq_inds = np.squeeze(
 # filter_freqs = np.array([main_f_range[x] for x in filter_freq_inds])
 
 # # get index of signal emission from each speaker
-# speaker_signal_delay = np.zeros(self.meta.nspeakers)
-# for ic, col in enumerate(test.speaker_data.columns):
-#     speaker_signal_delay[ic] = test.speaker_data[col].nonzero()[0][0] - 1
-# speaker_signal_delay = speaker_signal_delay.astype(int)
+speaker_signal_delay = np.array([2480, 2080, 4080, 0, 3200, 4000, 800, 2880])
 
 ############ Path related things, maybe exclude?
 # These can be put into another data dir module if I need them, but at this point they don't provide a lot of benefit.
