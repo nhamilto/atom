@@ -179,11 +179,11 @@ class dataset(object):
 
         # mic_locations(northing, easting, elevation) in feet
         self.mic_locations = np.array(offsets.mic_locations)
-        self.mic_xy_m = self.mic_locations[:, 0:2] * 0.3048
+        self.mic_xy_m = np.fliplr(self.mic_locations[:, 0:2] * 0.3048)
 
         # speaker_locations(northing, easting, elevation) in feet
         self.speaker_locations = np.array(offsets.speaker_locations)
-        self.speaker_xy_m = self.speaker_locations[:, 0:2] * 0.3048
+        self.speaker_xy_m = np.fliplr(self.speaker_locations[:, 0:2] * 0.3048)
 
         # physical distance between instruments
         # east-west distance
@@ -191,16 +191,17 @@ class dataset(object):
         mx = mx[:, np.newaxis].repeat(8, axis=1)
         sx = self.speaker_xy_m[:, 0]
         sx = sx[np.newaxis, :].repeat(8, axis=0)
-        distx = mx - sx
+        self.distx = mx - sx
+
         # north-south distance
         my = self.mic_xy_m[:, 1]
         my = my[:, np.newaxis].repeat(8, axis=1)
         sy = self.speaker_xy_m[:, 1]
         sy = sy[np.newaxis, :].repeat(8, axis=0)
-        disty = my - sy
+        self.disty = my - sy
         # euclidean distance between each speaker/mic combo
         # instrument spacing is an 8x8 array (nspeakers, nmics)
-        self.path_lengths = np.sqrt(distx**2 + disty**2)
+        self.path_lengths = np.sqrt(self.distx**2 + self.disty**2)
 
         # Ad-hoc tuning of signal ETAs. #TODO figure this shit out.
         self.ETA_index_offsets = offsets.ETA_index_offsets
@@ -560,3 +561,16 @@ class dataset(object):
                                                   self.meta.main_delta_t)
 
         return ATom_signals, travel_times, travel_time_inds  #, offsets
+
+    ####################################
+    def meanfield(self, travel_times):
+        """
+        caluclate the mean field values of velocity temperature etc.
+
+        Parameters:
+            travel_times: np.ndarray [nspeakers, nmics, nframes]
+                travel times (ms) of chirps between each speaker and mic for each frame
+
+        Returns:
+
+        """

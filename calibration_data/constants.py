@@ -61,10 +61,14 @@ filter_freq_inds = np.squeeze(
         main_record_length
     ])).astype(int)
 
-# filter_freqs = np.array([main_f_range[x] for x in filter_freq_inds])
-
 # # get index of signal emission from each speaker
 speaker_signal_delay = np.array([2480, 2080, 4080, 0, 3200, 4000, 800, 2880])
+
+######### Thermodynamic properties
+# gamma = Cp/Ct ratio of specific heats of air
+gamma = 1.4
+# Gas constant for air
+Ra = 287.058
 
 ############ Path related things, maybe exclude?
 # These can be put into another data dir module if I need them, but at this point they don't provide a lot of benefit.
